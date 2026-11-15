@@ -113,11 +113,11 @@ func main() {
 		log.Fatal("both -tls-cert and -tls-key must be provided together")
 	}
 	scheme := "http"
+	if *tlsCert != "" { scheme = "https" }
 	httpSrv := &http.Server{Addr: fmt.Sprintf(":%d", *port), Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		var err error
 		if *tlsCert != "" {
-			scheme = "https"
 			err = httpSrv.ListenAndServeTLS(*tlsCert, *tlsKey)
 		} else {
 			err = httpSrv.ListenAndServe()

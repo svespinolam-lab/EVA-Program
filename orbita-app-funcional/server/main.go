@@ -78,11 +78,11 @@ func evaluate(r Reading) Status {
  row.Scan(&n,&avgHR,&avgO2,&avgT,&avgHRV)
  if n>=5 { if avgHR.Valid {bHR=avgHR.Float64};if avgO2.Valid {bO2=avgO2.Float64};if avgT.Valid {bT=avgT.Float64};if avgHRV.Valid {bHRV=avgHRV.Float64} }
  score:=vuln; reasons:=[]string{}; protocol:="Continue standard monitoring."
- if r.SpO2<90 {score=max(score,98);reasons=append(reasons,"Critical oxygen saturation");protocol="Stop work. Check suit oxygen. Return to airlock."} else if r.SpO2<=92 {score=max(score,78);reasons=append(reasons,"Low oxygen saturation");protocol="Reduce workload and verify oxygen supply."}
- if r.Temp>=39 {score=max(score,95);reasons=append(reasons,"Critical temperature");protocol="Abort EVA and activate cooling protocol."} else if r.Temp>=38 {score=max(score,74);reasons=append(reasons,"Elevated temperature")}
+ effectiveHR:=r.HR-r.HRThresholdOffset;effectiveTemp:=r.Temp-r.TempThresholdOffset\n if r.SpO2<90 {score=max(score,98);reasons=append(reasons,"Critical oxygen saturation");protocol="Stop work. Check suit oxygen. Return to airlock."} else if r.SpO2<=92 {score=max(score,78);reasons=append(reasons,"Low oxygen saturation");protocol="Reduce workload and verify oxygen supply."}
+ if effectiveTemp>=39 {score=max(score,95);reasons=append(reasons,"Critical temperature");protocol="Abort EVA and activate cooling protocol."} else if effectiveTemp>=38 {score=max(score,74);reasons=append(reasons,"Elevated temperature")}
  effort:=r.Effort;if effort==""{effort="MODERATE"}
  limit:=bHR+15;if effort=="REST"{limit=bHR*1.35};if effort=="MODERATE"{limit=bHR+30};if effort=="HIGH"{limit=bHR+55}
- if r.HR>165 || (r.HR>130&&effort=="REST"){score=max(score,93);reasons=append(reasons,"Severe heart-rate elevation");protocol="Stop activity and assess crew member."}else if r.HR>limit{score=max(score,73);reasons=append(reasons,"Heart rate above personal baseline")}
+ if effectiveHR>165 || (effectiveHR>130&&effort=="REST"){score=max(score,93);reasons=append(reasons,"Severe heart-rate elevation");protocol="Stop activity and assess crew member."}else if effectiveHR>limit{score=max(score,73);reasons=append(reasons,"Heart rate above personal baseline")}
  if bHRV>0&&r.HRV>0&&r.HRV<bHRV*.65{score=min(100,score+12);reasons=append(reasons,"HRV decreased significantly")}
  level:="STABLE";if score>=90{level="EMERGENCY"}else if score>=70{level="RISK"}else if score>=40{level="VULNERABLE"}
  reason:="Within monitored parameters";if len(reasons)>0{reason=reasons[0]}

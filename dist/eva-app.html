@@ -1892,7 +1892,7 @@ App.config = {
   var defaultRoles = {};
   C.crew.forEach(function (m) { defaultRoles[m.id] = m.role; });
 
-  var PERSIST = ['theme', 'roles', 'checkins', 'profiles', 'selectedCrewId', 'voiceRate', 'linkEnabled', 'linkCrewId', 'stationHost', 'dailyLog'];
+  var PERSIST = ['theme', 'roles', 'checkins', 'profiles', 'selectedCrewId', 'voiceRate', 'linkEnabled', 'linkCrewId', 'stationHost', 'dailyLog', 'physicalManual'];
   var servedByStation = /^https?:$/.test(location.protocol) && location.pathname.indexOf('/app') === 0;
   var state = {
     linkEnabled: App.storage.get('linkEnabled', servedByStation),
@@ -1907,6 +1907,7 @@ App.config = {
     roles: App.storage.get('roles', defaultRoles),      // Crew ID to role, e.g. AST-001: EV1
     checkins: App.storage.get('checkins', {}),          // Crew ID to { mood, energy, sleepMin, at }
     profiles: App.storage.get('profiles', {}),          // Identity overrides edited in Profile
+    physicalManual: App.storage.get('physicalManual', {}), // Crew ID to manual measurements (survive reloads; stay on this phone)
     evaStart: Date.now(),                               // EVA start time for the T+ clock
   };
 
@@ -2724,7 +2725,11 @@ App.config = {
       d.bpSys = sim.bp ? sim.bp.bpSys : null;
       d.bpDia = sim.bp ? sim.bp.bpDia : null;
       d.bpAt = sim.bp ? sim.bp.bpAt : null;
-      d.source = Object.keys(sim.hardware).length ? 'device' : 'virtual';
+      // A packet is "device" only when every connected channel comes from a
+      // hardware sensor; any simulated channel makes the whole packet "virtual"
+      // so demo values are never presented as real (per-metric provenance: roadmap).
+      var live = LIVE_KEYS.filter(function (k) { return sim.sensors[k] === 'connected'; });
+      d.source = live.length && live.every(function (k) { return Number.isFinite(sim.hardware[k]); }) ? 'device' : 'virtual';
       return d;
     },
 
@@ -3948,7 +3953,7 @@ App.config = {
     if (send(Object.assign({ type: 'monthly-health' }, item))) { monthlyInFlight = item.month; monthlySent = JSON.stringify(item); }
   }
   function queueMonthlyHealth(record) {
-    if (!record || !/^\\d{4}-\\d{2}$/.test(record.month)) throw new Error('Monthly panel requires YYYY-MM');
+    if (!record || !/^\d{4}-(0[1-9]|1[0-2])$/.test(record.month)) throw new Error('Monthly panel requires YYYY-MM');
     var clean = { month: record.month };
     ['hemoglobin','wbc','platelets','glucose','orthostaticDrop','weightKg','radiationMonth'].forEach(function(k) {
       if (Number.isFinite(record[k])) clean[k] = record[k];
@@ -4597,7 +4602,7 @@ App.config = {
     if (st === 'connecting') foot = '<span class="spinner" aria-hidden="true"></span>Connecting…';
     else if (!connected) foot = wasLost(key) ? 'Signal lost' : 'No signal';
     else if (v === null) foot = 'Waiting for data…';
-    else foot = App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId,key) ? esc(stateText(key, level, v, true)) : 'Demo data · hardware not paired';
+    else foot = (App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId,key) ? '' : 'Demo · ') + esc(stateText(key, level, v, true));
 
     return '<div class="tile reg-tile" id="reg-tile-' + key + '" data-key="' + key + '"' +
       ' data-conn="' + (connected ? '1' : '0') + '" data-level="' + (v !== null ? App.ui.lvlAttr(level) : 'off') + '"' +
@@ -4666,7 +4671,9 @@ App.config = {
     var valEl = el.querySelector('[data-role="value"]');
     if (valEl) valEl.textContent = App.fmt.metric(key, data);
     var foot = el.querySelector('[data-role="status"]');
-    if (foot) foot.textContent = v === null ? 'Waiting for data…' : stateText(key, level, v, true);
+    var hw = !!(App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId, key));
+    // Keep the demo disclosure on every refresh (it used to vanish after one tick)
+    if (foot) foot.textContent = v === null ? 'Waiting for data…' : (hw ? '' : 'Demo · ') + stateText(key, level, v, true);
   }
 
   function onTelemetry(p) {

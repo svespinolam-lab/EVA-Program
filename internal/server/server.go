@@ -215,7 +215,8 @@ func (s *Server) wsDevice(w http.ResponseWriter, r *http.Request) {
 				if err := s.St.SaveMonthly(monthly); err != nil {
 					c.send(marshal(map[string]any{"type": "error", "error": err.Error()}))
 				} else {
-					s.Eng.Log("crew:"+c.crewID, c.crewID, "MONTHLY_HEALTH_SYNC", "Monthly clinical panel received for "+monthly.Month)
+					entry, _ := s.St.Log("", "crew:"+c.crewID, c.crewID, "MONTHLY_HEALTH_SYNC", "Monthly clinical panel received for "+monthly.Month)
+					s.Hub.Console(map[string]any{"type": "oplog", "entry": entry})
 					c.send(marshal(map[string]any{"type": "monthly-health-ok", "month": monthly.Month}))
 				}
 			}

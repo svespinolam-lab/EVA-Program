@@ -248,3 +248,12 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
   .grid--2, .grid--3 { grid-template-columns: minmax(0, 1fr); }
   .trends { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Black-box event payloads are intentionally collapsed to keep the table stable. */
+.bb-details { min-width: 0; max-width: 100%; }
+.bb-details summary { cursor: pointer; color: var(--accent); font-size: var(--fs-sm); font-weight: 600; }
+.bb-details pre { max-width: min(560px, 42vw); max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; }
+.bb-hash { min-width: 130px; white-space: nowrap; }
+.tbl-wrap table { table-layout: fixed; }
+.tbl-wrap th:nth-child(5), .tbl-wrap td:nth-child(5) { width: 30%; }
+.tbl-wrap th:nth-child(6), .tbl-wrap td:nth-child(6) { width: 150px; }

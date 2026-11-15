@@ -481,6 +481,25 @@
     var saved = manualValues(member.id);
     return '<section class="section" id="dx-physical-complete" aria-label="Complete physical health"><div class="section__head"><div><p class="eyebrow">Daily measurements · 12 indicators</p><h2 class="section__title">Physical health</h2></div></div><div class="card dx-physical-notice"><b>Sensor connection status</b><p>All 12 parameters remain visible. If a sensor is not paired, its card says so; no missing value is treated as normal. Browser demo streams are simulated, not readings from suit hardware.</p></div><div class="dx-physical-grid">' + PHYSICAL.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div><p class="subtle">Manual entries are stored on this phone only. They are not sent to EVA Station.</p></section>';
   }
+  function updatePhysicalValues(member, data) {
+    if (!st || !q('#dx-physical-complete')) return;
+    PHYSICAL.forEach(function(p) {
+      if (!SENSOR_KEYS[p.key] && p.key !== 'bp') return;
+      var card=q('[data-physical-card="'+p.key+'"]');
+      if (!card) return;
+      var v=physicalValue(p.key,data,manualValues(member.id));
+      var host=card.querySelector('.dx-physical-value');
+      if (host) setHTML(host,v==null?'<span class="dx-missing">No measurement yet</span>':'<b>'+esc(String(v))+'</b> <small>'+esc(p.unit)+'</small>');
+      var chip=card.querySelector('.chip');
+      if (chip) {
+        var key=SENSOR_KEYS[p.key], status=key&&App.telemetry&&App.telemetry.status?App.telemetry.status(member.id,key):'';
+        var demo=key&&!App.link?.isLinked?.();
+        chip.textContent=key?(status==='connected'?(demo?'Demo stream · hardware not paired':'Sensor connected'):'Sensor not connected'):'Manual entry / external device';
+        chip.setAttribute('data-tone',key&&status!=='connected'?'warning':'accent');
+      }
+    });
+  }
+
   function savePhysicalInput(e) {
     var input = e.target.closest('[data-physical-input]');
     if (!input || !st || !st.root.contains(input)) return;
@@ -657,12 +676,12 @@
       if (!st.iv) {
         updateHero(a);
         updateGroups(member, a, getData(member.id));
-        var ph = q('#dx-physical-complete'); if (ph) setHTML(ph, physicalSectionHTML(member, getData(member.id)));
+        updatePhysicalValues(member, getData(member.id));
       }
       updateMental(member, a);
     } else if ((evt === 'telemetry' || evt === 'sensor') && mine && !st.iv) {
       updateGroups(member, getRisk(member.id), getData(member.id));
-      var ph = q('#dx-physical-complete'); if (ph) setHTML(ph, physicalSectionHTML(member, getData(member.id)));
+      updatePhysicalValues(member, getData(member.id));
     } else if (evt === 'checkin' && mine) {
       updateMental(member, getRisk(member.id));
     } else if (evt === 'blackbox' && !st.iv) {

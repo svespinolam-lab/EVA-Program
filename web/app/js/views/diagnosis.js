@@ -441,7 +441,7 @@
     {key:'sleep',label:'Sleep duration',unit:'hours',method:'Actigraphy wearable or manual entry',source:'manual',why:'Tracks circadian disruption and accumulated fatigue.'},
     {key:'weight',label:'Body mass',unit:'kg',method:'Adapted spacecraft scale · manual entry',source:'manual',why:'Tracks nutritional status and muscle-mass changes.'},
     {key:'hydration',label:'Hydration (urine colour scale)',unit:'1–8',method:'Compare with the hydration colour card',source:'manual',why:'Helps identify dehydration and renal-stone risk.'},
-    {key:'rad',label:'Accumulated radiation dose',unit:'mSv',method:'Personal dosimeter',source:'sensor',why:'Tracks mission and career radiation exposure.'}
+    {key:'radAccum',label:'Accumulated radiation dose',unit:'mSv',method:'Personal dosimeter · cumulative mission dose',source:'manual',why:'Tracks mission and career radiation exposure.'}
   ];
   var SENSOR_KEYS = {hr:'hr',hrv:'hrv',spo2:'spo2',temp:'temp',rad:'rad'};
   var PHYSICAL_GUIDANCE = {
@@ -464,7 +464,7 @@
   }
   function physicalValue(key, data, saved) {
     if (SENSOR_KEYS[key] && data && isNum(data[SENSOR_KEYS[key]]) && isConnected(App.crew.selected().id, SENSOR_KEYS[key])) return data[SENSOR_KEYS[key]];
-    if (key === 'bp' && data && isNum(data.bpSys) && isNum(data.bpDia) && data.bpAt) return data.bpSys + '/' + data.bpDia;
+    if (key === 'bp' && saved && saved.bpSys != null && saved.bpDia != null) return saved.bpSys + '/' + saved.bpDia;
     return saved && saved[key] != null && saved[key] !== '' ? saved[key] : null;
   }
   function physicalCard(p, member, data, saved) {
@@ -510,7 +510,7 @@
     var row = Object.assign({}, all[member] || {});
     row[key] = input.value === '' ? null : Number(input.value);
     all[member] = row;
-    App.store.set({physicalManual:all});
+    App.store.set({physicalManual:all});\n    updatePhysicalValues(App.crew.byId(member),getData(member));
   }
 
   /* 5 · Blackbox */

@@ -461,7 +461,10 @@
     weight:'Observe: 2–5% change in 2 weeks. Red: >5% loss in 30 days.',
     hydration:'Green: 1–3. Observe: 4–5. Red: ≥6 or no urination for 8 h.',
     rad:'Green: dose rate <50% of mission budget. Observe: 50–80%. Red: >80% or solar-particle-event warning.',
-    radAccum:'Compare cumulative dosimeter reading with the mission and career budgets; flight-surgeon limits govern action.',\n    hemoglobin:'Record the laboratory result and review the trend with the flight surgeon; proposed adult reference: ≥12 g/dL for women and ≥13.5 g/dL for men.',\n    wbc:'Record the laboratory result and compare with the laboratory-specific reference interval; review unexpected trends with the flight surgeon.',\n    platelets:'Record the laboratory result and compare with the laboratory-specific reference interval; review unexpected trends with the flight surgeon.'
+    radAccum:'Compare cumulative dosimeter reading with the mission and career budgets; flight-surgeon limits govern action.',
+    hemoglobin:'Record the laboratory result and review the trend with the flight surgeon; proposed adult reference: ≥12 g/dL for women and ≥13.5 g/dL for men.',
+    wbc:'Record the laboratory result and compare with the laboratory-specific reference interval; review unexpected trends with the flight surgeon.',
+    platelets:'Record the laboratory result and compare with the laboratory-specific reference interval; review unexpected trends with the flight surgeon.'
   };
   function manualValues(id) {
     var all = App.store.get('physicalManual') || {};

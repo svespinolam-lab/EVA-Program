@@ -1586,6 +1586,11 @@ textarea.input { min-height: 180px; padding: 12px; font-family: var(--font-mono)
 .station-abort p { margin-block: 24px; }
 .station-abort .btn { min-height: 64px; width: 100%; }
 .reg-effort { display: inline-block; margin-bottom: 8px; padding: 4px 10px; border-radius: 20px; background: var(--surface-2); color: var(--text-2); font-size: 0.8rem; }
+/* Pairing with EVA Station (code from the console) */
+.station-pair { display: grid; gap: 8px; }
+.station-pair__row { display: flex; gap: 8px; }
+.station-pair__row input { flex: 1; min-width: 0; font-family: var(--font-mono); letter-spacing: 0.2em; font-size: 1.1rem; }
+.station-chip[data-state="unpaired"] { color: var(--caution); border-color: var(--caution); }
 
 </style>
 <style>/* css/views/guide.css */
@@ -3932,6 +3937,16 @@ App.config = {
     return item;
   }).filter(function (item) { return item && Number.isSafeInteger(item.seq) && item.seq > 0 && Number.isFinite(item.t) && typeof item.crewId === 'string'; }).slice(-20000);
   var seq = Math.max(Number(App.storage.get('linkSeq', 0)) || 0, outbox.reduce(function (n, item) { return Math.max(n, item.seq); }, 0));
+  /* Pairing: the station only accepts a phone that proves who it is with its
+     device token, obtained once by entering the 6-digit code shown on the
+     console. Messages the station must not lose (instructions, buddy alerts,
+     aborts) carry a msgId: the phone confirms each one and ignores repeats. */
+  var PAIR_ERRORS = ['pairing_required', 'pairing_failed', 'device_unknown', 'device_revoked', 'crew_mismatch'];
+  var pairCode = '', needsPairing = false;
+  var handled = App.storage.get('linkMsgs', []);
+  if (!Array.isArray(handled)) handled = [];
+  function credentials() { var c = App.storage.get('linkDevice', null); return c && c.deviceId && c.token ? c : null; }
+  function paired() { var c = credentials(); return !!(c && c.crewId === crewId()); }
 
   function host() { return served ? location.host : (App.store.get('stationHost') || ''); }
   function crewId() { return App.store.get('linkCrewId') || 'AST-001'; }
@@ -3963,12 +3978,12 @@ App.config = {
     if (i >= 0) monthlyOutbox[i] = Object.assign({}, monthlyOutbox[i], clean); else monthlyOutbox.push(clean);
     persistMonthly(); flushMonthly(); changed(); return true;
   }
-  function status() { return { state: state, host: host(), crewId: crewId(), queued: outbox.length, lastAck: lastAck }; }
+  function status() { var c = credentials(); return { state: state, host: host(), crewId: crewId(), queued: outbox.length, lastAck: lastAck, paired: paired(), deviceId: paired() ? c.deviceId : null }; }
   function changed() {
     var chip = document.getElementById('station-chip');
     if (chip) {
       chip.dataset.state = state;
-      chip.textContent = state === 'online' ? '● Station' : state === 'off' ? '○ Station off' :
+      chip.textContent = state === 'online' ? '● Station' : state === 'off' ? '○ Station off' : state === 'unpaired' ? '○ Pair with station' :
         (state === 'connecting' ? '◌ Connecting' : '○ Offline') + (outbox.length ? ' · ' + outbox.length + ' queued' : '');
     }
     App.bus.emit('link', { status: status() });
@@ -4004,6 +4019,7 @@ App.config = {
   }
   function schedule() {
     if (!enabled()) return;
+    if (needsPairing) { state = 'unpaired'; changed(); return; } // wait for a code; no retry storm
     state = 'offline'; changed();
     clearTimeout(retry);
     retry = setTimeout(connect, delay);
@@ -4025,7 +4041,11 @@ App.config = {
     catch (err) { schedule(); return; }
     ws.onopen = function () {
       if (ws !== socket) return;
-      send({ type: 'hello', crewId: crewId(), device: deviceLabel() });
+      var hello = { type: 'hello', crewId: crewId(), device: deviceLabel() };
+      var c = credentials();
+      if (c && c.crewId === crewId()) { hello.deviceId = c.deviceId; hello.token = c.token; }
+      else if (pairCode) hello.pairCode = pairCode;
+      send(hello);
     };
     ws.onmessage = function (event) {
       if (ws !== socket) return;
@@ -4135,7 +4155,22 @@ App.config = {
     log('alert', 'EVA ABORTED: ' + message.reason, 3, message);
   }
   function receive(message) {
+    if (message.msgId) {
+      // Durable station message: confirm it, and never act on it twice
+      // (it is replayed after every reconnection until confirmed).
+      send({ type: 'msg-ack', msgId: message.msgId });
+      var key = message.msgId + ':' + (message.t || message.alertId || message.missionId || '');
+      if (handled.indexOf(key) >= 0) return;
+      handled.push(key);
+      if (handled.length > 300) handled.splice(0, handled.length - 300);
+      App.storage.set('linkMsgs', handled);
+    }
     switch (message.type) {
+      case 'paired':
+        App.storage.set('linkDevice', { deviceId: message.deviceId, token: message.token, crewId: message.crewId });
+        pairCode = ''; needsPairing = false;
+        toast('Phone paired with EVA Station'); log('system', 'Paired with EVA Station as ' + message.deviceId, 0, { deviceId: message.deviceId });
+        changed(); break;
       case 'welcome':
         state = 'online'; delay = 1000;
         mission(message.mission); crew(message.crew);
@@ -4167,7 +4202,16 @@ App.config = {
       case 'inject': App.telemetry.inject(crewId(), message.scenario); break;
       case 'clear': App.telemetry.clearScenarios(crewId()); break;
       case 'replaced': toast(message.reason || 'This phone was replaced'); api.setEnabled(false); break;
-      case 'error': monthlyInFlight = null; monthlySent = null; toast(message.error || 'Station error'); break;
+      case 'error':
+        if (PAIR_ERRORS.indexOf(message.code) >= 0) {
+          // The station does not accept this phone yet: forget a rejected
+          // token and wait for a pairing code (Station link sheet).
+          if (message.code !== 'pairing_required') App.storage.set('linkDevice', null);
+          pairCode = ''; needsPairing = true; state = 'unpaired'; changed();
+          toast(message.code === 'pairing_failed' ? 'Wrong or expired pairing code' : message.code === 'device_revoked' ? 'This phone was unpaired by EVA Station' : 'Pair this phone: enter the code from EVA Station');
+          break;
+        }
+        monthlyInFlight = null; monthlySent = null; toast(message.error || 'Station error'); break;
       // pong and readiness-ok need no state change.
     }
   }
@@ -4234,6 +4278,10 @@ App.config = {
         App.ui.segmented({ name: 'station-crew', label: 'This phone belongs to', options: members.map(function (m) { return m.role + ' · ' + m.name; }), value: members.findIndex(function (m) { return m.id === crewId(); }) }) + '</div>' +
         '<label class="field">Station address<input id="station-host" type="text" placeholder="192.168.137.1:8080" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(host()) + '"' + (served ? ' readonly' : '') + '></label>' +
         '<div class="cfg-row"><span id="station-switch-label">Link</span><button type="button" id="station-switch" class="switch" role="switch" aria-labelledby="station-switch-label" aria-checked="' + enabled() + '"></button></div>' +
+        '<div class="field station-pair"><span class="field__label">Pairing</span><p class="muted" id="station-paired"></p>' +
+          '<div class="station-pair__row"><input id="station-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" aria-label="Pairing code from EVA Station">' +
+          '<button type="button" class="btn btn--secondary" id="station-pair">Pair</button></div>' +
+          '<button type="button" class="btn btn--ghost" id="station-unpair">Unpair this phone</button></div>' +
         '<p id="station-status" role="status"></p><button type="button" class="btn btn--primary" id="station-sync">Sync now</button>' +
         '<p class="muted">Suit readings and readiness summaries sync to the station. Your mood, energy and notes stay on this phone.</p></div>',
       onMount: function (body) {
@@ -4241,8 +4289,17 @@ App.config = {
           var s = status();
           body.querySelector('#station-status').textContent = s.state + ' · ' + s.queued + ' queued · last ACK ' + s.lastAck;
           body.querySelector('#station-switch').setAttribute('aria-checked', String(enabled()));
+          body.querySelector('#station-paired').textContent = s.paired ? 'Paired (' + s.deviceId + '). Readings are accepted by the station.' :
+            'Not paired. On the EVA Station PC open Simulator → Pair a phone, then enter the code here.';
+          body.querySelector('#station-unpair').hidden = !s.paired;
         }
         refresh(); unsubscribe = App.bus.on('link', refresh);
+        body.querySelector('#station-pair').onclick = function () {
+          var code = body.querySelector('#station-code').value.replace(/\D/g, '');
+          if (code.length !== 6) { toast('Enter the 6-digit code shown on EVA Station'); return; }
+          api.pair(code); body.querySelector('#station-code').value = '';
+        };
+        body.querySelector('#station-unpair').onclick = function () { api.unpair(); };
         body.querySelector('#station-host').onchange = function (event) { try { api.setHost(event.target.value); } catch (err) { toast(err.message); } };
         body.querySelector('#station-switch').onclick = function () { api.setEnabled(!enabled()); };
         body.querySelector('#station-sync').onclick = function () {
@@ -4284,6 +4341,15 @@ App.config = {
     status: status,
     deviceCrewId: crewId,
     setEnabled: function (value) { App.store.set({ linkEnabled: !!value }); },
+    pair: function (code) {
+      pairCode = String(code || '').replace(/\D/g, '');
+      needsPairing = false; delay = 1000;
+      if (!enabled()) App.store.set({ linkEnabled: true }); else connect();
+    },
+    unpair: function () {
+      App.storage.set('linkDevice', null); needsPairing = true; close(); state = 'unpaired'; changed();
+      toast('This phone is unpaired. Ask the operator for a new code to link it again.');
+    },
     setCrew: function (id) {
       if (!App.crew.byId(id)) throw new Error('Unknown crew member');
       App.store.set({ linkCrewId: id });

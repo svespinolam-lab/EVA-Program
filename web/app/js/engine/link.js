@@ -43,7 +43,7 @@
     if (send(Object.assign({ type: 'monthly-health' }, item))) { monthlyInFlight = item.month; monthlySent = JSON.stringify(item); }
   }
   function queueMonthlyHealth(record) {
-    if (!record || !/^\\d{4}-\\d{2}$/.test(record.month)) throw new Error('Monthly panel requires YYYY-MM');
+    if (!record || !/^\d{4}-(0[1-9]|1[0-2])$/.test(record.month)) throw new Error('Monthly panel requires YYYY-MM');
     var clean = { month: record.month };
     ['hemoglobin','wbc','platelets','glucose','orthostaticDrop','weightKg','radiationMonth'].forEach(function(k) {
       if (Number.isFinite(record[k])) clean[k] = record[k];

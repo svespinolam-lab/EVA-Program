@@ -359,7 +359,11 @@
       d.bpSys = sim.bp ? sim.bp.bpSys : null;
       d.bpDia = sim.bp ? sim.bp.bpDia : null;
       d.bpAt = sim.bp ? sim.bp.bpAt : null;
-      d.source = Object.keys(sim.hardware).length ? 'device' : 'virtual';
+      // A packet is "device" only when every connected channel comes from a
+      // hardware sensor; any simulated channel makes the whole packet "virtual"
+      // so demo values are never presented as real (per-metric provenance: roadmap).
+      var live = LIVE_KEYS.filter(function (k) { return sim.sensors[k] === 'connected'; });
+      d.source = live.length && live.every(function (k) { return Number.isFinite(sim.hardware[k]); }) ? 'device' : 'virtual';
       return d;
     },
 

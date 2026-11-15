@@ -51,7 +51,7 @@
   var defaultRoles = {};
   C.crew.forEach(function (m) { defaultRoles[m.id] = m.role; });
 
-  var PERSIST = ['theme', 'roles', 'checkins', 'profiles', 'selectedCrewId', 'voiceRate', 'linkEnabled', 'linkCrewId', 'stationHost', 'dailyLog'];
+  var PERSIST = ['theme', 'roles', 'checkins', 'profiles', 'selectedCrewId', 'voiceRate', 'linkEnabled', 'linkCrewId', 'stationHost', 'dailyLog', 'physicalManual'];
   var servedByStation = /^https?:$/.test(location.protocol) && location.pathname.indexOf('/app') === 0;
   var state = {
     linkEnabled: App.storage.get('linkEnabled', servedByStation),
@@ -66,6 +66,7 @@
     roles: App.storage.get('roles', defaultRoles),      // Crew ID to role, e.g. AST-001: EV1
     checkins: App.storage.get('checkins', {}),          // Crew ID to { mood, energy, sleepMin, at }
     profiles: App.storage.get('profiles', {}),          // Identity overrides edited in Profile
+    physicalManual: App.storage.get('physicalManual', {}), // Crew ID to manual measurements (survive reloads; stay on this phone)
     evaStart: Date.now(),                               // EVA start time for the T+ clock
   };
 

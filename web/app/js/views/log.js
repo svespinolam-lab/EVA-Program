@@ -287,7 +287,7 @@
     if (st === 'connecting') foot = '<span class="spinner" aria-hidden="true"></span>Connecting…';
     else if (!connected) foot = wasLost(key) ? 'Signal lost' : 'No signal';
     else if (v === null) foot = 'Waiting for data…';
-    else foot = App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId,key) ? esc(stateText(key, level, v, true)) : 'Demo data · hardware not paired';
+    else foot = (App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId,key) ? '' : 'Demo · ') + esc(stateText(key, level, v, true));
 
     return '<div class="tile reg-tile" id="reg-tile-' + key + '" data-key="' + key + '"' +
       ' data-conn="' + (connected ? '1' : '0') + '" data-level="' + (v !== null ? App.ui.lvlAttr(level) : 'off') + '"' +
@@ -356,7 +356,9 @@
     var valEl = el.querySelector('[data-role="value"]');
     if (valEl) valEl.textContent = App.fmt.metric(key, data);
     var foot = el.querySelector('[data-role="status"]');
-    if (foot) foot.textContent = v === null ? 'Waiting for data…' : stateText(key, level, v, true);
+    var hw = !!(App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId, key));
+    // Keep the demo disclosure on every refresh (it used to vanish after one tick)
+    if (foot) foot.textContent = v === null ? 'Waiting for data…' : (hw ? '' : 'Demo · ') + stateText(key, level, v, true);
   }
 
   function onTelemetry(p) {

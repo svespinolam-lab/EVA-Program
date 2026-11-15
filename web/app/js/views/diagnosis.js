@@ -656,7 +656,7 @@
     var a = getRisk(member.id);
     st.iv = !/^EV/.test(member.role);
     if (st.iv) {
-      root.innerHTML = ivHTML(member) + mentalSectionHTML(member, a);
+      root.innerHTML = ivHTML(member) + mentalSectionHTML(member, a) + physicalSectionHTML(member, null);
     } else {
       var data = getData(member.id);
       root.innerHTML =

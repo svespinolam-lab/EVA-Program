@@ -37,6 +37,8 @@ func main() {
 	dataDir := flag.String("data", "data", "folder for the SQLite database")
 	webDir := flag.String("web", "", "serve app/, pc/ and shared/ from this folder instead of the embedded copy (default: ./web if it exists)")
 	virtual := flag.String("virtual", "AST-002", "crew ids with a virtual suit at start-up: comma list, 'all' or 'none'")
+	tlsCert := flag.String("tls-cert", "", "TLS certificate PEM (required for phone BLE in Chrome)")
+	tlsKey := flag.String("tls-key", "", "TLS private key PEM")
 	flag.Parse()
 
 	st, err := store.Open(filepath.Join(*dataDir, "eva-station.db"))
@@ -107,10 +109,21 @@ func main() {
 		}
 	}()
 
+	if (*tlsCert == "") != (*tlsKey == "") {
+		log.Fatal("both -tls-cert and -tls-key must be provided together")
+	}
+	scheme := "http"
 	httpSrv := &http.Server{Addr: fmt.Sprintf(":%d", *port), Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
-		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("http: %v", err)
+		var err error
+		if *tlsCert != "" {
+			scheme = "https"
+			err = httpSrv.ListenAndServeTLS(*tlsCert, *tlsKey)
+		} else {
+			err = httpSrv.ListenAndServe()
+		}
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("server: %v", err)
 		}
 	}()
 

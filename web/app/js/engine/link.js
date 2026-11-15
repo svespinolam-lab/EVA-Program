@@ -10,7 +10,7 @@
   var state = 'off', lastAck = 0, replay = [], inFlight = null, sent = new Set();
   var monthlyOutbox = App.storage.get('monthlyOutbox', []);
   if (!Array.isArray(monthlyOutbox)) monthlyOutbox = [];
-  var monthlyInFlight = null;
+  var monthlyInFlight = null, monthlySent = null;
   var alerts = {}, seen = {}, abortTimer = null, abortKey = null;
   var esc = App.dom.esc;
   var saved = App.storage.get('outbox', []);
@@ -40,7 +40,7 @@
   function flushMonthly() {
     if (state !== 'online' || monthlyInFlight || !monthlyOutbox.length) return;
     var item = monthlyOutbox[0];
-    if (send(Object.assign({ type: 'monthly-health' }, item))) monthlyInFlight = item.month;
+    if (send(Object.assign({ type: 'monthly-health' }, item))) { monthlyInFlight = item.month; monthlySent = JSON.stringify(item); }
   }
   function queueMonthlyHealth(record) {
     if (!record || !/^\\d{4}-\\d{2}$/.test(record.month)) throw new Error('Monthly panel requires YYYY-MM');
@@ -90,7 +90,7 @@
     clearTimeout(retry); clearTimeout(batchTimer); retry = batchTimer = null;
     var old = socket; socket = null;
     if (old) { old.onopen = old.onmessage = old.onclose = old.onerror = null; old.close(); }
-    replay = []; inFlight = null; sent.clear();
+    replay = []; inFlight = null; sent.clear(); monthlyInFlight = null; monthlySent = null;
   }
   function schedule() {
     if (!enabled()) return;
@@ -226,7 +226,7 @@
         }
         break;
       case 'monthly-health-ok':
-        monthlyOutbox = monthlyOutbox.filter(function(x){return x.month !== message.month;}); persistMonthly(); monthlyInFlight = null; flushMonthly(); toast('Monthly clinical panel synced'); break;
+        if (monthlyOutbox.length && monthlyOutbox[0].month === message.month && JSON.stringify(monthlyOutbox[0]) === monthlySent) monthlyOutbox.shift(); persistMonthly(); monthlyInFlight = null; monthlySent = null; flushMonthly(); toast('Monthly clinical panel synced'); break;
       case 'batch-ok':
         if (!inFlight) break;
         clearTimeout(batchTimer);
@@ -244,7 +244,7 @@
       case 'inject': App.telemetry.inject(crewId(), message.scenario); break;
       case 'clear': App.telemetry.clearScenarios(crewId()); break;
       case 'replaced': toast(message.reason || 'This phone was replaced'); api.setEnabled(false); break;
-      case 'error': monthlyInFlight = null; toast(message.error || 'Station error'); break;
+      case 'error': monthlyInFlight = null; monthlySent = null; toast(message.error || 'Station error'); break;
       // pong and readiness-ok need no state change.
     }
   }

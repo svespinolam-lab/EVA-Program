@@ -71,4 +71,4 @@ The private diary (mood, notes, cycle) never leaves the phone: only the readines
 
 ## HTTP API (station)
 
-`GET /api/state` · `GET /api/info` · `POST /api/mission/{start|end|abort|new}` · `POST /api/alerts/{id}/ack` · `POST /api/instruction` · `POST /api/crew/{id}/incident` · `POST /api/incidents/{id}/seal` · `GET|POST /api/sim…` · `GET /api/blackbox[/verify]` · `GET /api/export/{table}` (CSV) · `GET /reports/{mission|incident|monthly}/{id}` (print → PDF).
+`GET /api/state` · `GET /api/info` · `GET /api/health/database` (SQLite integrity + row counts) · `POST /api/mission/{start|end|abort|new}` · `POST /api/alerts/{id}/ack` · `POST /api/instruction` · `POST /api/crew/{id}/incident` · `POST /api/incidents/{id}/seal` · `GET|POST /api/sim…` · `GET /api/blackbox[/verify]` · `GET /api/export/{table}` (CSV) · `GET /reports/{mission|incident|monthly}/{id}` (print → PDF).

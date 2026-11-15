@@ -14,7 +14,8 @@
   var outbox = (Array.isArray(saved) ? saved : []).map(function (row) {
     if (!Array.isArray(row)) return row;
     var item = { type: 'telemetry', crewId: row[0], seq: row[1], t: row[2] };
-    FIELDS.forEach(function (k, i) { if (Number.isFinite(row[i + 3])) item[k] = row[i + 3]; });\n    item.source = row[16] || 'virtual';
+    FIELDS.forEach(function (k, i) { if (Number.isFinite(row[i + 3])) item[k] = row[i + 3]; });
+    item.source = row[16] || 'virtual';
     return item;
   }).filter(function (item) { return item && Number.isSafeInteger(item.seq) && item.seq > 0 && Number.isFinite(item.t) && typeof item.crewId === 'string'; }).slice(-20000);
   var seq = Math.max(Number(App.storage.get('linkSeq', 0)) || 0, outbox.reduce(function (n, item) { return Math.max(n, item.seq); }, 0));

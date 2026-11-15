@@ -57,7 +57,9 @@ func initDB(){
  CREATE TABLE IF NOT EXISTS premission_checks(id INTEGER PRIMARY KEY AUTOINCREMENT,astronaut_id TEXT,mission_id TEXT,ts TEXT,traffic_light TEXT,vulnerability INTEGER,summary TEXT);
  CREATE TABLE IF NOT EXISTS monthly_reports(id INTEGER PRIMARY KEY AUTOINCREMENT,astronaut_id TEXT,month TEXT,payload TEXT,UNIQUE(astronaut_id,month));
  `
- if _,err=db.Exec(schema);err!=nil{log.Fatal(err)}\n db.Exec("ALTER TABLE telemetry ADD COLUMN event_id TEXT") // harmless when the column already exists\n db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_telemetry_event_id ON telemetry(event_id)")
+ if _,err=db.Exec(schema);err!=nil{log.Fatal(err)}
+ db.Exec("ALTER TABLE telemetry ADD COLUMN event_id TEXT") // harmless when the column already exists
+ db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_telemetry_event_id ON telemetry(event_id)")
  // Demo roster. Replace these records with authenticated crew provisioning before operational use.
  db.Exec(`INSERT OR IGNORE INTO astronauts(id,name,role,sex,base_hr,base_spo2,base_temp,base_hrv) VALUES
  ('AST-001','Crew Member 01','EXPLORER','F',70,98,36.8,50),

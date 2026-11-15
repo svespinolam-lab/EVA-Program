@@ -510,7 +510,8 @@
     var row = Object.assign({}, all[member] || {});
     row[key] = input.value === '' ? null : Number(input.value);
     all[member] = row;
-    App.store.set({physicalManual:all});\n    updatePhysicalValues(App.crew.byId(member),getData(member));
+    App.store.set({physicalManual:all});
+    updatePhysicalValues(App.crew.byId(member),getData(member));
   }
 
   /* 5 · Blackbox */

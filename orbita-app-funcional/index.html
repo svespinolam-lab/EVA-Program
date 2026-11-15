@@ -51,6 +51,7 @@
 const KEY='orbita-mobile-v2';
 const initial={entries:[],profile:{name:'Andrea Salinas',code:'ORB-03-114',role:'Oficial médico de tripulación',mission:'ORB-03 · Hábitat análogo',birth:'',sex:'',blood:'',start:'02 DIC 2026',allergy:'',history:[],meds:[]}};
 let state;try{state={...initial,...JSON.parse(localStorage.getItem(KEY)||'{}')};state.profile={...initial.profile,...state.profile};}catch{state=JSON.parse(JSON.stringify(initial))}
+window.EVA_LEGACY_ENTRIES=state.entries||[];state.entries=[];
 let picks={mood:'Bueno',energy:'Media',quality:'Buena'};
 const $=id=>document.getElementById(id);
 function persist(){localStorage.setItem(KEY,JSON.stringify(state));render()}

@@ -57,7 +57,7 @@ func initDB(){
  CREATE TABLE IF NOT EXISTS premission_checks(id INTEGER PRIMARY KEY AUTOINCREMENT,astronaut_id TEXT,mission_id TEXT,ts TEXT,traffic_light TEXT,vulnerability INTEGER,summary TEXT);
  CREATE TABLE IF NOT EXISTS monthly_reports(id INTEGER PRIMARY KEY AUTOINCREMENT,astronaut_id TEXT,month TEXT,payload TEXT,UNIQUE(astronaut_id,month));
  `
- if _,err=db.Exec(schema);err!=nil{log.Fatal(err)}
+ if _,err=db.Exec(schema);err!=nil{log.Fatal(err)}\n db.Exec("ALTER TABLE telemetry ADD COLUMN event_id TEXT") // harmless when the column already exists\n db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_telemetry_event_id ON telemetry(event_id)")
  // Demo roster. Replace these records with authenticated crew provisioning before operational use.
  db.Exec(`INSERT OR IGNORE INTO astronauts(id,name,role,sex,base_hr,base_spo2,base_temp,base_hrv) VALUES
  ('AST-001','Crew Member 01','EXPLORER','F',70,98,36.8,50),
@@ -97,7 +97,7 @@ func broadcast(v any){mu.Lock();defer mu.Unlock();for c:=range clients{c.SetWrit
 func record(r Reading) (Status,error){
  if r.AstronautID==""||r.MissionID==""||r.HR<=0||r.SpO2<=0||r.Temp<=0{return Status{},http.ErrBodyNotAllowed}
  if r.EventID==""{r.EventID=r.AstronautID+"-"+time.Now().UTC().Format("20060102150405.000000000")}
- s:=evaluate(r);_,err:=db.Exec(`INSERT OR IGNORE INTO telemetry(event_id,mission_id,astronaut_id,ts,hr,spo2,temp,resp,hrv,radiation,effort,ipv,level,reason,protocol) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,r.EventID,r.MissionID,r.AstronautID,s.Timestamp,r.HR,r.SpO2,r.Temp,r.Resp,r.HRV,r.Radiation,r.Effort,s.Score,s.Level,s.Reason,s.Protocol)
+ s:=evaluate(r);res,err:=db.Exec(`INSERT OR IGNORE INTO telemetry(event_id,mission_id,astronaut_id,ts,hr,spo2,temp,resp,hrv,radiation,effort,ipv,level,reason,protocol) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,r.EventID,r.MissionID,r.AstronautID,s.Timestamp,r.HR,r.SpO2,r.Temp,r.Resp,r.HRV,r.Radiation,r.Effort,s.Score,s.Level,s.Reason,s.Protocol)
  if err!=nil{return s,err}
  mu.Lock();previous,hadPrevious:=latest[r.AstronautID];latest[r.AstronautID]=s;mu.Unlock()
  if (s.Level=="RISK"||s.Level=="EMERGENCY")&&(!hadPrevious||previous.Level!=s.Level){

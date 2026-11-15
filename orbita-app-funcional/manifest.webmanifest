@@ -1,6 +1,6 @@
 {
-  "name":"ÓRBITA · Monitoreo de salud",
-  "short_name":"ÓRBITA",
+  "name":"EVA · Monitoreo de salud",
+  "short_name":"EVA",
   "lang":"es-MX",
   "start_url":"./index.html",
   "scope":"./",
@@ -8,5 +8,5 @@
   "orientation":"portrait",
   "background_color":"#f1f3f7",
   "theme_color":"#071c38",
-  "icons":[{"src":"assets/orbita-logo.png","sizes":"192x192","type":"image/png"},{"src":"assets/orbita-logo.png","sizes":"512x512","type":"image/png"}]
+  "icons":[{"src":"assets/eva-logo.png","sizes":"192x192","type":"image/png"},{"src":"assets/eva-logo.png","sizes":"512x512","type":"image/png"}]
 }

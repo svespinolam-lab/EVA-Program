@@ -73,12 +73,12 @@ func evaluate(r Reading) Status {
  var samples int
  db.QueryRow("SELECT COUNT(DISTINCT date(ts)) FROM telemetry WHERE astronaut_id=?",r.AstronautID).Scan(&samples)
  window:="-14 days"
- if samples>=14 { window="-7 days" }
+ if samples>=15 { window="-7 days" }
  var n int
  row:=db.QueryRow("SELECT COUNT(*),AVG(hr),AVG(spo2),AVG(temp),AVG(NULLIF(hrv,0)) FROM telemetry WHERE astronaut_id=? AND ts>=datetime('now',?)",r.AstronautID,window)
  var avgHR,avgO2,avgT,avgHRV sql.NullFloat64
  row.Scan(&n,&avgHR,&avgO2,&avgT,&avgHRV)
- if n>=5 { if avgHR.Valid {bHR=avgHR.Float64};if avgO2.Valid {bO2=avgO2.Float64};if avgT.Valid {bT=avgT.Float64};if avgHRV.Valid {bHRV=avgHRV.Float64} }
+ if samples>=14 && n>=5 { if avgHR.Valid {bHR=avgHR.Float64};if avgO2.Valid {bO2=avgO2.Float64};if avgT.Valid {bT=avgT.Float64};if avgHRV.Valid {bHRV=avgHRV.Float64} }
  score:=vuln; reasons:=[]string{}; protocol:="Continue standard monitoring."
  effectiveHR:=r.HR-r.HRThresholdOffset;effectiveTemp:=r.Temp-r.TempThresholdOffset
  if r.SpO2<90 {score=max(score,98);reasons=append(reasons,"Critical oxygen saturation");protocol="Stop work. Check suit oxygen. Return to airlock."} else if r.SpO2<=92 {score=max(score,78);reasons=append(reasons,"Low oxygen saturation");protocol="Reduce workload and verify oxygen supply."}

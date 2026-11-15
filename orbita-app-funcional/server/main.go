@@ -60,6 +60,7 @@ func initDB(){
  ('AST-001','Crew Member 01','EXPLORER','F',70,98,36.8,50),
  ('AST-002','Crew Member 02','EXPLORER','M',68,98,36.7,52),
  ('AST-003','Crew Member 03','EXPLORER','M',72,97,36.8,48)`)
+ db.Exec(`INSERT OR IGNORE INTO astronauts(id,name,role,sex,base_hr,base_spo2,base_temp,base_hrv) VALUES('ORB-03-114','Andrea Salinas','EXPLORER','F',70,98,36.8,50)`)
  db.Exec(`INSERT OR IGNORE INTO missions(id,name,environment,start_at,status) VALUES('EVA-2026-09','Lunar Surface EVA','LUNAR','', 'ACTIVE')`)
 }
 func evaluate(r Reading) Status {

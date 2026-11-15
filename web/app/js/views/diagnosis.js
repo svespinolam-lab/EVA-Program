@@ -441,7 +441,7 @@
     {key:'sleep',label:'Sleep duration',unit:'hours',method:'Actigraphy wearable or manual entry',source:'manual',why:'Tracks circadian disruption and accumulated fatigue.'},
     {key:'weight',label:'Body mass',unit:'kg',method:'Adapted spacecraft scale · manual entry',source:'manual',why:'Tracks nutritional status and muscle-mass changes.'},
     {key:'hydration',label:'Hydration (urine colour scale)',unit:'1–8',method:'Compare with the hydration colour card',source:'manual',why:'Helps identify dehydration and renal-stone risk.'},
-    {key:'radAccum',label:'Accumulated radiation dose',unit:'mSv',method:'Personal dosimeter · cumulative mission dose',source:'manual',why:'Tracks mission and career radiation exposure.'}
+    {key:'radiationMonth',label:'Accumulated radiation dose this month',unit:'mSv',method:'Personal dosimeter · monthly cumulative dose',source:'manual',why:'Tracks mission and career radiation exposure.'}
   ];
   var SENSOR_KEYS = {hr:'hr',hrv:'hrv',spo2:'spo2',temp:'temp',rad:'rad'};
   var MONTHLY_LABS = [
@@ -462,7 +462,7 @@
     weight:'Observe: 2–5% change in 2 weeks. Red: >5% loss in 30 days.',
     hydration:'Green: 1–3. Observe: 4–5. Red: ≥6 or no urination for 8 h.',
     rad:'Green: dose rate <50% of mission budget. Observe: 50–80%. Red: >80% or solar-particle-event warning.',
-    radAccum:'Compare cumulative dosimeter reading with the mission and career budgets; flight-surgeon limits govern action.',
+    radiationMonth:'Compare the monthly dosimeter reading with the mission and career budgets; flight-surgeon limits govern action.',
     hemoglobin:'Record the laboratory result and review the trend with the flight surgeon; proposed adult reference: ≥12 g/dL for women and ≥13.5 g/dL for men.',
     wbc:'Record the laboratory result and compare with the laboratory-specific reference interval; review unexpected trends with the flight surgeon.',
     platelets:'Record the laboratory result and compare with the laboratory-specific reference interval; review unexpected trends with the flight surgeon.'
@@ -630,7 +630,7 @@
     if (!st) return;
     var pair = e.target.closest('[data-dx-pair-ble]');
     if(pair){ if(!App.ble){App.ui.toast('Bluetooth adapter unavailable',{icon:'unlink',level:2});return;} App.ble.pair(st.memberId).catch(function(err){App.ui.toast(err.message,{icon:'unlink',level:2});}); return; }
-    var b = e.target.closest('[data-dx-action]');
+    var sync = e.target.closest('[data-dx-sync-monthly]');\n    if(sync){ var saved=manualValues(st.memberId); var now=new Date(); var month=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); try{ if(!App.link||!App.link.sendMonthlyHealth) throw new Error('Station link unavailable'); App.link.sendMonthlyHealth({month:month,hemoglobin:saved.hemoglobin,wbc:saved.wbc,platelets:saved.platelets,glucose:saved.glucose,orthostaticDrop:saved.orthostatic,weightKg:saved.weight,radiationMonth:saved.radiationMonth}); App.ui.toast('Monthly clinical panel queued for EVA Station',{icon:'check'}); }catch(err){App.ui.toast(err.message,{icon:'triangle',level:2});} return; }\n    var b = e.target.closest('[data-dx-action]');
     if (!b || !st.root.contains(b)) return;
     var act = b.getAttribute('data-dx-action');
     if (act === 'listen') listen();

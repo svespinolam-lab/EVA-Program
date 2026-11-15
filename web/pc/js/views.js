@@ -499,7 +499,7 @@
       root.innerHTML = '<div class="st-head"><div><p class="eyebrow">Like an aircraft flight data recorder</p><h1>Black box</h1>' +
         '<p>Every reading is recorded continuously; every event is chained with SHA-256 so any later edit is detectable. Incidents freeze T−30 min … T+15 min.</p></div>' +
         '<div class="st-actions"><button type="button" class="btn btn--primary" id="bb-verify">' + icon('shield') + 'Verify integrity</button>' +
-        '<button type="button" class="btn btn--secondary" id="bb-refresh">' + icon('refresh') + 'Refresh</button></div></div>' +
+        '<button type="button" class="btn btn--secondary" id="bb-refresh">' + icon('refresh') + 'Refresh</button>' + '<button type="button" class="btn btn--secondary" id="bb-db-check">' + icon('database') + 'Check database</button></div></div>' +
         '<div id="bb-result"></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Time</th><th>Event</th><th>Crew</th><th>Event data</th><th>SHA-256</th></tr></thead><tbody id="bb-rows"><tr><td colspan="6" class="subtle">Loading…</td></tr></tbody></table></div>';
       var load = function () {
         S.api('GET', '/api/blackbox?limit=200').then(function (list) {
@@ -509,7 +509,7 @@
           }).join('') || '<tr><td colspan="6" class="subtle">Empty.</td></tr>';
         });
       };
-      root.querySelector('#bb-refresh').addEventListener('click', load);
+      root.querySelector('#bb-refresh').addEventListener('click', load);\n      root.querySelector('#bb-db-check').addEventListener('click', function(){S.api('GET','/api/health/database').then(function(r){document.getElementById('bb-result').innerHTML='<p class="flag card" data-level="'+(r.ok?0:3)+'">'+icon(r.ok?'check':'octagon')+' SQLite '+esc(r.integrity||r.database)+' · '+esc(JSON.stringify(r.counts||{}))+'</p>';}).catch(function(e){S.toast('Database check failed: '+e.message,{icon:'triangle',level:3});});});
       root.querySelector('#bb-verify').addEventListener('click', function () {
         S.api('GET', '/api/blackbox/verify').then(function (r) {
           document.getElementById('bb-result').innerHTML = '<p class="flag card" data-level="' + (r.ok ? 0 : 3) + '">' + icon(r.ok ? 'check' : 'octagon') +

@@ -18,7 +18,7 @@ async function getPrivate(){const d=await openDB(),rows=await new Promise((res,r
 async function queue(payload){const d=await openDB();return new Promise((res,rej)=>{const t=d.transaction('queue','readwrite');t.objectStore('queue').put({id:payload.id||crypto.randomUUID(),payload,created:Date.now()});t.oncomplete=res;t.onerror=()=>rej(t.error)})}
 async function pending(){const d=await openDB();return new Promise((res,rej)=>{const t=d.transaction('queue').objectStore('queue').getAll();t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error)})}
 async function removeQueue(id){const d=await openDB();return new Promise(res=>{const t=d.transaction('queue','readwrite');t.objectStore('queue').delete(id);t.oncomplete=res})}
-const station=()=>localStorage.getItem(cfgKey)||'';
+const station=()=>localStorage.getItem(cfgKey)||location.origin;
 function say(text){if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=.94;window.speechSynthesis.speak(u)}
 function toast(t){const old=$('toast');if(old){old.textContent=t;old.classList.remove('hidden');setTimeout(()=>old.classList.add('hidden'),2600)}}
 function status(t){const n=$('evaConnection');if(n)n.textContent=t}

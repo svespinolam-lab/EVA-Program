@@ -253,7 +253,7 @@
     return '<div class="sensor reg-sensor" id="reg-row-bp" data-key="bp">' +
       sensorHead('bp') + result +
       '<button type="button" class="btn btn--secondary btn--block" data-action="go-diagnosis">' +
-        App.icon('edit') + 'Enter blood pressure' +
+        App.icon('clipboard') + 'Enter blood pressure' +
       '</button></div>';
   }
 

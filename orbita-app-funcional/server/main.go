@@ -100,7 +100,7 @@ func record(r Reading) (Status,error){
  if r.AstronautID==""||r.MissionID==""||r.HR<=0||r.SpO2<=0||r.Temp<=0{return Status{},http.ErrBodyNotAllowed}
  if r.EventID==""{r.EventID=r.AstronautID+"-"+time.Now().UTC().Format("20060102150405.000000000")}
  s:=evaluate(r);res,err:=db.Exec(`INSERT OR IGNORE INTO telemetry(event_id,mission_id,astronaut_id,ts,hr,spo2,temp,resp,hrv,radiation,effort,ipv,level,reason,protocol) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,r.EventID,r.MissionID,r.AstronautID,s.Timestamp,r.HR,r.SpO2,r.Temp,r.Resp,r.HRV,r.Radiation,r.Effort,s.Score,s.Level,s.Reason,s.Protocol)
- if err!=nil{return s,err}
+ if err!=nil{return s,err};affected,_:=res.RowsAffected();if affected==0{return s,nil}
  mu.Lock();previous,hadPrevious:=latest[r.AstronautID];latest[r.AstronautID]=s;mu.Unlock()
  if (s.Level=="RISK"||s.Level=="EMERGENCY")&&(!hadPrevious||previous.Level!=s.Level){
   msg:="Check vital signs and follow crew protocol.";if s.Level=="EMERGENCY"{msg="Critical vital signs. Stop EVA and return to airlock."}

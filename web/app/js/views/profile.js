@@ -141,6 +141,7 @@
     var body = editing ? editForm(m) :
       '<dl class="kv pf-kv">' +
         kvRow('Name', m.name) +
+        kvRow('Crew ID', m.id) +
         kvRow('Age', hasValue(m.age) ? m.age + ' years' : '') +
         kvRow('Sex', m.sex) +
         kvRow('Role', ROLE_LABEL[m.role] || m.role) +
@@ -149,24 +150,49 @@
         kvRow('Mission', C.mission.name) +
         kvRow('Destination', C.mission.destination) +
         kvRow('Site', C.mission.site) +
+        kvRow('Duration', durationText()) +
       '</dl>';
     return '<section class="section" aria-label="Identity and mission">' +
       App.ui.sectionHead({ eyebrow: 'Crew profile', title: 'Identity and mission', action: action }) +
       '<div class="card">' + body + '</div></section>';
   }
 
+  /* Planned EVA (station value when linked) and mission duration */
+  function durationText() {
+    var sm = App.store.get('stationMission') || {};
+    var h = Number(sm.plannedH) > 0 ? Number(sm.plannedH) : C.mission.plannedH;
+    var parts = [];
+    if (h) parts.push('EVA ' + h + ' h planned');
+    if (C.mission.durationDays) parts.push('mission ' + C.mission.durationDays + ' days');
+    return parts.join(' · ');
+  }
+
+  // The clinical record shipped in config.js is example data, never a real person.
+  var EXAMPLE_HINT = 'Example record from the mission configuration: replace it with the real one before a mission.';
+
   function medical(m) {
     var md = m.medical || {};
     var allergy = md.allergies && !/^(none\b|no\s)/i.test(md.allergies);
     return '<section class="section" aria-label="Medical history">' +
-      App.ui.sectionHead({ eyebrow: 'History', title: 'Medical history' }) +
+      App.ui.sectionHead({ eyebrow: 'History', title: 'Medical history', hint: EXAMPLE_HINT }) +
       '<div class="card"><dl class="kv pf-kv">' +
         kvRow('Allergies', md.allergies, allergy) +
         kvRow('Conditions', md.conditions) +
         kvRow('Medication', md.medication) +
+        kvRow('Supplements', md.supplements) +
         kvRow('Surgeries', md.surgeries) +
         kvRow('EVA hours', hasValue(md.evaHours) ? md.evaHours + ' h' : '') +
       '</dl></div></section>';
+  }
+
+  function contacts(m) {
+    var list = ((m.medical || {}).contacts) || [];
+    var body = list.length ? '<dl class="kv pf-kv">' + list.map(function (c) {
+      return kvRow(c.relation || 'Contact', c.name + (c.channel ? ' · ' + c.channel : ''));
+    }).join('') + '</dl>' : '<p class="muted">No emergency contact recorded.</p>';
+    return '<section class="section" aria-label="Emergency contacts">' +
+      App.ui.sectionHead({ eyebrow: 'Emergency', title: 'Emergency contacts', hint: 'Reached through mission control. ' + EXAMPLE_HINT }) +
+      '<div class="card">' + body + '</div></section>';
   }
 
   function baseline(m) {
@@ -272,7 +298,7 @@
       root.innerHTML = App.ui.empty('user', 'No crew configured.');
       return;
     }
-    root.innerHTML = '<div class="pf" id="pf">' + hero(m) + identity(m) + medical(m) + baseline(m) + '</div>';
+    root.innerHTML = '<div class="pf" id="pf">' + hero(m) + identity(m) + medical(m) + contacts(m) + baseline(m) + '</div>';
     var wrap = root.querySelector('#pf');
     wrap.addEventListener('click', onClick);
     var form = wrap.querySelector('#pf-form');

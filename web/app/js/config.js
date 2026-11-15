@@ -18,6 +18,8 @@ App.config = {
     destination: 'Moon',                       // 'Moon' or 'Mars'
     site: 'Shackleton crater · south pole',
     evaNumber: 2,
+    plannedH: 6,                               // Planned EVA duration (hours); the station value wins when linked
+    durationDays: 30,                          // Planned surface mission duration (days)
     earthDelay: { Moon: '1.3 s', Mars: '4–24 min' },   // One-way signal delay to Earth
   },
 
@@ -32,6 +34,8 @@ App.config = {
         medication: 'None',
         surgeries: 'Appendectomy (2009)',
         evaHours: 21,
+        supplements: 'Vitamin D 1000 IU daily',
+        contacts: [{ name: 'Example contact A', relation: 'Partner', channel: 'Ground relay · mission control' }],   // Example data: replace with the real contacts
       },
       baseline: { hr: 62, bpSys: 116, bpDia: 74, spo2: 98, temp: 36.6, rr: 14, hrv: 58, weight: 61, height: 167, vo2max: 46, measuredAt: '2026-10-28' },
     },
@@ -44,6 +48,8 @@ App.config = {
         medication: 'Losartan 25 mg daily',
         surgeries: 'None',
         evaHours: 34,
+        supplements: 'Vitamin D 1000 IU daily · omega-3',
+        contacts: [{ name: 'Example contact B', relation: 'Sister', channel: 'Ground relay · mission control' }],   // Example data: replace with the real contacts
       },
       baseline: { hr: 68, bpSys: 124, bpDia: 80, spo2: 97, temp: 36.7, rr: 15, hrv: 48, weight: 78, height: 178, vo2max: 42, measuredAt: '2026-10-28' },
     },
@@ -56,6 +62,8 @@ App.config = {
         medication: 'None',
         surgeries: 'Refractive surgery (2016)',
         evaHours: 12,
+        supplements: 'Vitamin D 1000 IU daily',
+        contacts: [{ name: 'Example contact C', relation: 'Parent', channel: 'Ground relay · mission control' }],   // Example data: replace with the real contacts
       },
       baseline: { hr: 64, bpSys: 112, bpDia: 72, spo2: 98, temp: 36.5, rr: 13, hrv: 62, weight: 64, height: 170, vo2max: 44, measuredAt: '2026-10-28' },
     },

@@ -1,4 +1,34 @@
-# EVA · Biomedical EVA monitoring (phone app + EVA Station)
+# EVA · Biomedical EVA monitoring Ecosystem (phone app + EVA Station)
+
+**NASA Space Apps Challenge — Project Submission**
+
+EVA is an integrated astronaut health monitoring ecosystem designed to support crew health monitoring during space missions.
+
+## Project resources
+
+- **Source code:** https://github.com/svespinolam-lab/EVA-Program
+- **Technical documentation:** See the `/docs` directory.
+- **Architecture:** See `docs/EVA_Architecture.pdf`.
+- **Application screenshots:** See `/demo/screenshots`.
+- **Installation instructions:** See `docs/Installation_Guide.pdf`.
+
+## System components
+
+1. EVA Mobile — Crew health monitoring application.
+2. EVA Station — Mission control dashboard.
+3. EVA Backend — Local server and database.
+4. Suit Telemetry — Biometric sensor integration.
+5. Biometric Flight Recorder — Mission event recording.
+
+## Demonstration and testing
+
+The project includes simulated biometric devices and astronaut scenarios to demonstrate system operation without requiring physical suit sensors.
+
+Simulated data is explicitly identified as simulated and is not presented as validated medical measurements.
+
+## Access
+
+The source repository is publicly accessible. No GitHub login is required to view the project files.
 
 EVA supports a crew during extravehicular activities on the Moon or Mars **without internet**: each explorer's phone reads the suit sensors, classifies risk at the edge, speaks short alerts and keeps a local black box; the cabin PC runs **EVA Station** — Go server + SQLite + the operator program ("guy in the chair") — over a local Wi-Fi star network.
 

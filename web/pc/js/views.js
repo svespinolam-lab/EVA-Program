@@ -509,7 +509,8 @@
           }).join('') || '<tr><td colspan="6" class="subtle">Empty.</td></tr>';
         });
       };
-      root.querySelector('#bb-refresh').addEventListener('click', load);\n      root.querySelector('#bb-db-check').addEventListener('click', function(){S.api('GET','/api/health/database').then(function(r){document.getElementById('bb-result').innerHTML='<p class="flag card" data-level="'+(r.ok?0:3)+'">'+icon(r.ok?'check':'octagon')+' SQLite '+esc(r.integrity||r.database)+' · '+esc(JSON.stringify(r.counts||{}))+'</p>';}).catch(function(e){S.toast('Database check failed: '+e.message,{icon:'triangle',level:3});});});
+      root.querySelector('#bb-refresh').addEventListener('click', load);
+      root.querySelector('#bb-db-check').addEventListener('click', function(){S.api('GET','/api/health/database').then(function(r){document.getElementById('bb-result').innerHTML='<p class="flag card" data-level="'+(r.ok?0:3)+'">'+icon(r.ok?'check':'octagon')+' SQLite '+esc(r.integrity||r.database)+' · '+esc(JSON.stringify(r.counts||{}))+'</p>';}).catch(function(e){S.toast('Database check failed: '+e.message,{icon:'triangle',level:3});});});
       root.querySelector('#bb-verify').addEventListener('click', function () {
         S.api('GET', '/api/blackbox/verify').then(function (r) {
           document.getElementById('bb-result').innerHTML = '<p class="flag card" data-level="' + (r.ok ? 0 : 3) + '">' + icon(r.ok ? 'check' : 'octagon') +

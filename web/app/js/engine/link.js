@@ -7,7 +7,10 @@
   var FIELDS = ['hr', 'spo2', 'temp', 'rr', 'hrv', 'rad', 'effort', 'suitP', 'o2', 'co2', 'batt', 'bpSys', 'bpDia'];
   var served = /^https?:$/.test(location.protocol) && location.pathname.indexOf('/app') === 0;
   var socket = null, retry = null, batchTimer = null, delay = 1000, initialized = false;
-  var state = 'off', lastAck = 0, replay = [], inFlight = null, sent = new Set();\n  var monthlyOutbox = App.storage.get('monthlyOutbox', []);\n  if (!Array.isArray(monthlyOutbox)) monthlyOutbox = [];\n  var monthlyInFlight = null;
+  var state = 'off', lastAck = 0, replay = [], inFlight = null, sent = new Set();
+  var monthlyOutbox = App.storage.get('monthlyOutbox', []);
+  if (!Array.isArray(monthlyOutbox)) monthlyOutbox = [];
+  var monthlyInFlight = null;
   var alerts = {}, seen = {}, abortTimer = null, abortKey = null;
   var esc = App.dom.esc;
   var saved = App.storage.get('outbox', []);

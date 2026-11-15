@@ -1,25 +1,34 @@
 package server
 
-// Operator access control.
+// Access control: who is calling, what their role allows, and the audit log.
 //
 // EVA Station serves two audiences on the same port:
 //
-//   - explorers' phones (any device on the mission Wi-Fi): /app/, /shared/,
-//     /ws/device and the public liveness probe /api/health;
-//   - the cabin operator: the PC program (/), /ws/console, /api/... and
-//     /reports/... (mission control, medical records, exports).
+//   - explorers' phones: /app/, /shared/, /ws/device (paired devices only,
+//     see pairing.go) and the public liveness probe /api/health;
+//   - people at the console: the PC program (/), /ws/console, /api/... and
+//     /reports/....
 //
-// Operator routes are trusted only from this computer (loopback or one of its
-// own addresses). Any other device must present the operator token: open
-// /?operator=TOKEN once (sets an HttpOnly, SameSite=Strict cookie) or send
-// "Authorization: Bearer TOKEN". State-changing requests and the console
-// WebSocket must also be same-origin, so a page from another site cannot drive
-// the station through the operator's own browser (CSRF / WebSocket hijacking).
+// A console request is authorised as:
+//
+//   - the station PC itself (loopback or one of its own addresses): built-in
+//     operator, so the cabin console needs no password;
+//   - the bootstrap operator token (data/operator.token, printed at start);
+//   - a personal user token (users table) with that user's role.
+//
+// Tokens arrive once as /?operator=TOKEN (stored in an HttpOnly,
+// SameSite=Strict cookie) or as "Authorization: Bearer TOKEN".
+// Permissions: view, medical, respond, command, admin (roles table).
+// State-changing requests and the console WebSocket must be same-origin
+// (CSRF / WebSocket hijacking guard). Changes and clinical reads are audited.
 
 import (
+	"bufio"
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
+	"errors"
 	"html"
 	"net"
 	"net/http"
@@ -27,6 +36,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"eva/internal/store"
 )
 
 const (
@@ -34,10 +45,21 @@ const (
 	maxBodyBytes   = 1 << 20 // 1 MiB per API request
 )
 
-// LoadOperatorToken returns the operator token, in order of preference: the
-// explicit value (flag), EVA_OPERATOR_TOKEN, or <dataDir>/operator.token —
-// created with a random 128-bit value on first start so it stays stable
-// across restarts.
+// Permissions.
+const (
+	permView    = "view"    // live triage, black box, mission state
+	permMedical = "medical" // clinical records, exports, reports
+	permRespond = "respond" // acknowledge alerts, instructions, incidents
+	permCommand = "command" // mission control, simulator, crew and mission records
+	permAdmin   = "admin"   // users, devices, backups, audit log
+)
+
+var allPerms = map[string]bool{permView: true, permMedical: true, permRespond: true, permCommand: true, permAdmin: true}
+
+// LoadOperatorToken returns the bootstrap operator token, in order of
+// preference: the explicit value (flag), EVA_OPERATOR_TOKEN, or
+// <dataDir>/operator.token — created with a random 128-bit value on first
+// start so it stays stable across restarts.
 func LoadOperatorToken(dataDir, explicit string) (string, error) {
 	if t := strings.TrimSpace(explicit); t != "" {
 		return t, nil
@@ -90,28 +112,105 @@ func isLocal(r *http.Request) bool {
 	return false
 }
 
+func remoteIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// principal is the authenticated caller of a console request.
+type principal struct {
+	Actor string          `json:"actor"` // "station", "operator-token" or a user id
+	Name  string          `json:"name"`
+	Role  string          `json:"role"`
+	Local bool            `json:"local"`
+	perms map[string]bool `json:"-"`
+}
+
+func (p principal) can(perm string) bool { return p.perms[perm] }
+
+// Permissions returns the sorted permission names (for /api/auth/me).
+func (p principal) Permissions() []string {
+	out := []string{}
+	for _, k := range []string{permView, permMedical, permRespond, permCommand, permAdmin} {
+		if p.perms[k] {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
 func (s *Server) validToken(t string) bool {
 	return s.OperatorToken != "" && t != "" &&
 		subtle.ConstantTimeCompare([]byte(t), []byte(s.OperatorToken)) == 1
 }
 
-// isOperator: this PC, a valid bearer token, or a valid operator cookie.
-func (s *Server) isOperator(r *http.Request) bool {
+// rolePerms returns the permission set of a role (roles table, cached).
+func (s *Server) rolePerms(role string) map[string]bool {
+	s.rolesOnce.Do(func() {
+		s.roles = map[string]map[string]bool{}
+		if rs, err := s.St.Roles(); err == nil {
+			for name, ps := range rs {
+				m := map[string]bool{}
+				for _, p := range ps {
+					m[strings.TrimSpace(p)] = true
+				}
+				s.roles[name] = m
+			}
+		}
+	})
+	return s.roles[role]
+}
+
+func requestToken(r *http.Request) string {
+	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+		return strings.TrimSpace(h[7:])
+	}
+	if c, err := r.Cookie(operatorCookie); err == nil {
+		return c.Value
+	}
+	return ""
+}
+
+// authenticate resolves the caller from a token (no local shortcut).
+func (s *Server) authenticate(token string) (principal, bool) {
+	if token == "" {
+		return principal{}, false
+	}
+	if s.validToken(token) {
+		return principal{Actor: "operator-token", Name: "Operator (station token)", Role: "operator", perms: allPerms}, true
+	}
+	if s.St != nil {
+		if u, err := s.St.UserByToken(token); err == nil {
+			return principal{Actor: u.ID, Name: u.Name, Role: u.Role, perms: s.rolePerms(u.Role)}, true
+		}
+	}
+	return principal{}, false
+}
+
+// principalOf resolves the caller of a console request.
+func (s *Server) principalOf(r *http.Request) (principal, bool) {
 	if isLocal(r) {
-		return true
+		return principal{Actor: "station", Name: "Station PC", Role: "operator", Local: true, perms: allPerms}, true
 	}
-	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") && s.validToken(strings.TrimSpace(h[7:])) {
-		return true
+	return s.authenticate(requestToken(r))
+}
+
+type ctxKey struct{}
+
+// who returns the principal attached by need (station if absent, e.g. tests).
+func who(r *http.Request) principal {
+	if p, ok := r.Context().Value(ctxKey{}).(principal); ok {
+		return p
 	}
-	if c, err := r.Cookie(operatorCookie); err == nil && s.validToken(c.Value) {
-		return true
-	}
-	return false
+	return principal{Actor: "station", Role: "operator", perms: allPerms}
 }
 
 // sameOrigin rejects browser requests coming from another site. Clients that
 // send neither Origin nor Sec-Fetch-Site (curl, scripts, tests) are allowed;
-// they still need operator access.
+// they still need to be authorised.
 func sameOrigin(r *http.Request) bool {
 	switch r.Header.Get("Sec-Fetch-Site") {
 	case "", "same-origin", "none":
@@ -133,42 +232,112 @@ func isUpgrade(r *http.Request) bool {
 	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
 }
 
-// operator guards an operator-only handler.
-func (s *Server) operator(h http.HandlerFunc) http.HandlerFunc {
+// need guards a console handler with one permission. Changes and clinical
+// or administrative reads are written to the audit log.
+func (s *Server) need(perm string, h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !s.isOperator(r) {
+		p, ok := s.principalOf(r)
+		if !ok {
+			s.audit(r, principal{Actor: "anonymous", Role: "-"}, http.StatusUnauthorized)
 			s.deny(w, r)
 			return
 		}
-		if (r.Method != http.MethodGet && r.Method != http.MethodHead) || isUpgrade(r) {
-			if !sameOrigin(r) {
-				writeJSON(w, http.StatusForbidden, map[string]any{"error": "cross-origin request blocked"})
-				return
-			}
+		mutating := r.Method != http.MethodGet && r.Method != http.MethodHead
+		if (mutating || isUpgrade(r)) && !sameOrigin(r) {
+			s.audit(r, p, http.StatusForbidden)
+			writeJSON(w, http.StatusForbidden, map[string]any{"error": "cross-origin request blocked"})
+			return
 		}
-		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Body != nil {
+		if !p.can(perm) {
+			s.audit(r, p, http.StatusForbidden)
+			writeJSON(w, http.StatusForbidden, map[string]any{"error": "your role (" + p.Role + ") does not allow this action"})
+			return
+		}
+		if mutating && r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		}
-		h(w, r)
+		r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, p))
+		if !mutating && perm != permMedical && perm != permAdmin {
+			h(w, r) // routine reads (live triage, state) are not audited
+			return
+		}
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		h(rec, r)
+		s.audit(r, p, rec.status)
 	}
 }
 
+func (s *Server) audit(r *http.Request, p principal, status int) {
+	if s.St == nil {
+		return
+	}
+	s.St.Audit(store.AuditEntry{Actor: p.Actor, Role: p.Role, IP: remoteIP(r), Action: r.Method + " " + r.URL.Path, Result: status})
+}
+
+// statusRecorder captures the response status for the audit log.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+	wrote  bool
+}
+
+func (w *statusRecorder) WriteHeader(code int) {
+	if !w.wrote {
+		w.status, w.wrote = code, true
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *statusRecorder) Write(b []byte) (int, error) {
+	w.wrote = true
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *statusRecorder) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (w *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, errors.New("hijack not supported")
+}
+
 // operatorPage guards the PC program (static files under /). Opening
-// /?operator=TOKEN with a valid token stores it in a cookie and reloads /.
+// /?operator=TOKEN (or ?token=) with any valid console token stores it in a
+// cookie and reloads /.
 func (s *Server) operatorPage(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if t := r.URL.Query().Get("operator"); t != "" && s.validToken(t) {
-			http.SetCookie(w, &http.Cookie{Name: operatorCookie, Value: t, Path: "/", HttpOnly: true,
-				SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: 12 * 3600})
-			http.Redirect(w, r, "/", http.StatusSeeOther)
-			return
+		t := r.URL.Query().Get("operator")
+		if t == "" {
+			t = r.URL.Query().Get("token")
 		}
-		if !s.isOperator(r) {
+		if t != "" {
+			if p, ok := s.authenticate(t); ok {
+				http.SetCookie(w, &http.Cookie{Name: operatorCookie, Value: t, Path: "/", HttpOnly: true,
+					SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: 12 * 3600})
+				s.audit(r, p, http.StatusSeeOther)
+				http.Redirect(w, r, "/", http.StatusSeeOther)
+				return
+			}
+			s.audit(r, principal{Actor: "anonymous", Role: "-"}, http.StatusUnauthorized)
+		}
+		p, ok := s.principalOf(r)
+		if !ok || !p.can(permView) {
 			s.deny(w, r)
 			return
 		}
 		h.ServeHTTP(w, r)
 	})
+}
+
+// logout clears the console cookie.
+func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: operatorCookie, Value: "", Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: -1})
+	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
 // deny answers JSON to API / WebSocket clients and a short page to browsers.
@@ -186,7 +355,7 @@ func (s *Server) deny(w http.ResponseWriter, r *http.Request) {
 		`h1{font-size:1.4rem;color:#0B3D91}a{color:#0B3D91;font-weight:600}</style></head><body>` +
 		`<h1>EVA Station · operator access only</h1>` +
 		`<p>This console controls the mission and holds medical records. Open it on the station PC, ` +
-		`or use the operator link shown in the EVA Station window.</p>` +
+		`or use the operator link shown in the EVA Station window (or your personal access link).</p>` +
 		`<p>Explorers: open the <a href="/app/">EVA app</a>.</p>` +
 		`<p style="color:#5B6573;font-size:.85rem">` + html.EscapeString(r.URL.Path) + `</p></body></html>`))
 }

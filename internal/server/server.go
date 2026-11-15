@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"eva/internal/engine"
@@ -45,52 +46,122 @@ type Server struct {
 	// OperatorToken lets another device (not this PC) use the operator
 	// console: /?operator=TOKEN or "Authorization: Bearer TOKEN". See auth.go.
 	OperatorToken string
+
+	// OpenPairing (demo only): phones are paired on first hello without a
+	// code. Default false: a one-time code from the console is required.
+	OpenPairing bool
+
+	// DataDir holds the database, backups/ and tls/ (for /api/backups and status).
+	DataDir string
+
+	// TLSFingerprint and HTTPSPort are shown in /api/status when HTTPS is on.
+	TLSFingerprint string
+	HTTPSPort      int
+
+	started   time.Time
+	roles     map[string]map[string]bool
+	rolesOnce sync.Once
+	pairing   *pairingBook
+	initOnce  sync.Once
+}
+
+func (s *Server) init() {
+	s.initOnce.Do(func() {
+		s.started = time.Now()
+		s.pairing = newPairingBook()
+	})
 }
 
 // Handler returns the HTTP routes. Phones get /app/, /shared/, /ws/device and
-// /api/health; everything else is operator-only (see auth.go).
+// /api/health; every other route declares the permission it needs (auth.go).
 func (s *Server) Handler() http.Handler {
+	s.init()
 	mux := http.NewServeMux()
-	op := s.operator
+	view := func(h http.HandlerFunc) http.HandlerFunc { return s.need(permView, h) }
+	medical := func(h http.HandlerFunc) http.HandlerFunc { return s.need(permMedical, h) }
+	respond := func(h http.HandlerFunc) http.HandlerFunc { return s.need(permRespond, h) }
+	command := func(h http.HandlerFunc) http.HandlerFunc { return s.need(permCommand, h) }
+	admin := func(h http.HandlerFunc) http.HandlerFunc { return s.need(permAdmin, h) }
 
 	// Live links
 	mux.HandleFunc("GET /ws/device", s.wsDevice)
-	mux.HandleFunc("GET /ws/console", op(s.wsConsole))
+	mux.HandleFunc("GET /ws/console", view(s.wsConsole))
 
 	// Public liveness probe (no mission or medical data)
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"status": "ok", "service": "EVA Station", "version": Version})
 	})
 
-	// Data and actions (operator)
-	mux.HandleFunc("GET /api/info", op(s.apiInfo))
-	mux.HandleFunc("GET /api/health/database", op(s.apiDatabaseHealth))
-	mux.HandleFunc("GET /api/state", op(func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, s.Eng.Snapshot()) }))
-	mux.HandleFunc("POST /api/mission/start", op(s.apiMission("start")))
-	mux.HandleFunc("POST /api/mission/end", op(s.apiMission("end")))
-	mux.HandleFunc("POST /api/mission/abort", op(s.apiMission("abort")))
-	mux.HandleFunc("POST /api/mission/new", op(s.apiMission("new")))
-	mux.HandleFunc("POST /api/alerts/{id}/ack", op(s.apiAck))
-	mux.HandleFunc("POST /api/instruction", op(s.apiInstruction))
-	mux.HandleFunc("POST /api/crew/{id}/incident", op(s.apiIncident))
-	mux.HandleFunc("POST /api/crew/{id}/help-clear", op(func(w http.ResponseWriter, r *http.Request) {
+	// Session
+	mux.HandleFunc("GET /api/auth/me", view(s.apiMe))
+	mux.HandleFunc("POST /api/auth/logout", s.logout)
+
+	// Live state and mission control
+	mux.HandleFunc("GET /api/info", view(s.apiInfo))
+	mux.HandleFunc("GET /api/status", view(s.apiStatus))
+	mux.HandleFunc("GET /api/health/database", view(s.apiDatabaseHealth))
+	mux.HandleFunc("GET /api/state", view(func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, s.Eng.Snapshot()) }))
+	mux.HandleFunc("GET /api/sync", view(s.apiSync))
+	mux.HandleFunc("POST /api/mission/start", command(s.apiMission("start")))
+	mux.HandleFunc("POST /api/mission/end", command(s.apiMission("end")))
+	mux.HandleFunc("POST /api/mission/abort", command(s.apiMission("abort")))
+	mux.HandleFunc("POST /api/mission/new", command(s.apiMission("new")))
+	mux.HandleFunc("GET /api/missions", view(s.apiMissions))
+	mux.HandleFunc("POST /api/missions", command(s.apiCreateMission))
+	mux.HandleFunc("GET /api/missions/{id}/crew", view(s.apiMissionCrew))
+	mux.HandleFunc("PUT /api/missions/{id}/crew", command(s.apiSetMissionCrew))
+
+	// Alerts and responses
+	mux.HandleFunc("GET /api/alerts", view(s.apiAlerts))
+	mux.HandleFunc("GET /api/alerts/{id}/responses", view(s.apiAlertResponses))
+	mux.HandleFunc("POST /api/alerts/{id}/ack", respond(s.apiAck))
+	mux.HandleFunc("POST /api/instruction", respond(s.apiInstruction))
+	mux.HandleFunc("POST /api/crew/{id}/incident", respond(s.apiIncident))
+	mux.HandleFunc("POST /api/crew/{id}/help-clear", respond(func(w http.ResponseWriter, r *http.Request) {
 		s.Eng.ClearHelp(r.PathValue("id"))
 		writeJSON(w, 200, map[string]any{"ok": true})
 	}))
-	mux.HandleFunc("GET /api/crew/{id}/readiness", op(s.apiReadiness))
-	mux.HandleFunc("POST /api/incidents/{id}/seal", op(s.apiSeal))
-	mux.HandleFunc("GET /api/sim", op(s.apiSim))
-	mux.HandleFunc("POST /api/sim/inject", op(s.apiSimInject))
-	mux.HandleFunc("POST /api/sim/clear", op(s.apiSimClear))
-	mux.HandleFunc("POST /api/sim/virtual", op(s.apiSimVirtual))
-	mux.HandleFunc("GET /api/blackbox", op(s.apiChain))
-	mux.HandleFunc("GET /api/blackbox/verify", op(s.apiVerify))
-	mux.HandleFunc("GET /api/export/{table}", op(s.apiExport))
+	mux.HandleFunc("POST /api/incidents/{id}/seal", respond(s.apiSeal))
+	mux.HandleFunc("GET /api/protocols", view(s.apiProtocols))
 
-	// Printable reports (HTML → Print → PDF), operator only
-	mux.HandleFunc("GET /reports/mission/{id}", op(s.reportMission))
-	mux.HandleFunc("GET /reports/incident/{id}", op(s.reportIncident))
-	mux.HandleFunc("GET /reports/monthly/{crew}", op(s.reportMonthly))
+	// Crew records (clinical)
+	mux.HandleFunc("GET /api/crew", medical(s.apiCrewList))
+	mux.HandleFunc("POST /api/crew", command(s.apiCreateCrew))
+	mux.HandleFunc("PUT /api/crew/{id}", medical(s.apiUpdateCrew))
+	mux.HandleFunc("GET /api/crew/{id}/vitals", medical(s.apiVitals))
+	mux.HandleFunc("GET /api/crew/{id}/contacts", medical(s.apiContacts))
+	mux.HandleFunc("PUT /api/crew/{id}/contacts", medical(s.apiSetContacts))
+	mux.HandleFunc("GET /api/crew/{id}/readiness", medical(s.apiReadiness))
+
+	// Sensors
+	mux.HandleFunc("GET /api/sensors", view(s.apiSensors))
+	mux.HandleFunc("POST /api/sensors", command(s.apiAddSensor))
+	mux.HandleFunc("PUT /api/sensors/{id}", command(s.apiUpdateSensor))
+
+	// Simulator
+	mux.HandleFunc("GET /api/sim", view(s.apiSim))
+	mux.HandleFunc("POST /api/sim/inject", command(s.apiSimInject))
+	mux.HandleFunc("POST /api/sim/clear", command(s.apiSimClear))
+	mux.HandleFunc("POST /api/sim/virtual", command(s.apiSimVirtual))
+
+	// Black box, exports and printable reports (HTML → Print → PDF)
+	mux.HandleFunc("GET /api/blackbox", view(s.apiChain))
+	mux.HandleFunc("GET /api/blackbox/verify", view(s.apiVerify))
+	mux.HandleFunc("GET /api/export/{table}", medical(s.apiExport))
+	mux.HandleFunc("GET /reports/mission/{id}", medical(s.reportMission))
+	mux.HandleFunc("GET /reports/incident/{id}", medical(s.reportIncident))
+	mux.HandleFunc("GET /reports/monthly/{crew}", medical(s.reportMonthly))
+
+	// Administration: users, paired phones, backups, audit
+	mux.HandleFunc("GET /api/users", admin(s.apiUsers))
+	mux.HandleFunc("POST /api/users", admin(s.apiCreateUser))
+	mux.HandleFunc("POST /api/users/{id}/disable", admin(s.apiDisableUser))
+	mux.HandleFunc("GET /api/devices", admin(s.apiDevices))
+	mux.HandleFunc("POST /api/devices/pair", admin(s.apiPair))
+	mux.HandleFunc("POST /api/devices/{id}/revoke", admin(s.apiRevokeDevice))
+	mux.HandleFunc("GET /api/backups", admin(s.apiBackups))
+	mux.HandleFunc("POST /api/backups", admin(s.apiCreateBackup))
+	mux.HandleFunc("GET /api/audit", admin(s.apiAudit))
 
 	// Static front-ends
 	sub := func(dir string) http.Handler {
@@ -149,7 +220,56 @@ type envelope struct {
 	Response string          `json:"response"`
 	N        int             `json:"n"`
 	Items    []model.Sample  `json:"items"`
+	DeviceID string          `json:"deviceId"` // hello: paired device id
+	Token    string          `json:"token"`    // hello: paired device token
+	PairCode string          `json:"pairCode"` // hello: one-time pairing code
+	MsgID    int64           `json:"msgId"`    // msg-ack: outbox message id
 	Raw      json.RawMessage `json:"-"`
+}
+
+// authenticateDevice decides who a phone is from its hello: a paired device
+// token, a one-time pairing code, or (demo only) open pairing.
+func (s *Server) authenticateDevice(conn *ws.Conn, h envelope, name, ip string) (store.Device, map[string]any, bool) {
+	fail := func(code, msg string) (store.Device, map[string]any, bool) {
+		_ = conn.WriteText(marshal(map[string]any{"type": "error", "code": code, "error": msg}))
+		s.St.Audit(store.AuditEntry{Actor: "device:" + h.DeviceID, Role: "device", IP: ip, Action: "HELLO " + code, Target: h.CrewID, Result: 0})
+		return store.Device{}, nil, false
+	}
+	switch {
+	case h.DeviceID != "" && h.Token != "":
+		d, err := s.St.DeviceByToken(h.DeviceID, h.Token)
+		if err != nil {
+			return fail("device_unknown", "This phone is not paired (or was unpaired). Ask the operator for a new pairing code.")
+		}
+		if h.CrewID != "" && h.CrewID != d.CrewID {
+			return fail("crew_mismatch", "This phone is paired to another crew member. Pair it again.")
+		}
+		return d, nil, true
+	case strings.TrimSpace(h.PairCode) != "":
+		p, ok := s.pairing.take(strings.TrimSpace(h.PairCode), h.CrewID)
+		if !ok {
+			return fail("pairing_failed", "Wrong or expired pairing code.")
+		}
+		return s.pairDevice(conn, p.crewID, name, p.by, ip)
+	case !s.Eng.Known(h.CrewID):
+		return fail("unknown_crew", "unknown crew member: send {type:'hello', crewId:'AST-001', ...}")
+	case s.OpenPairing:
+		return s.pairDevice(conn, h.CrewID, name, "open-pairing", ip)
+	default:
+		return fail("pairing_required", "Pair this phone: enter the 6-digit code shown in EVA Station (Simulator → Pair a phone).")
+	}
+}
+
+func (s *Server) pairDevice(conn *ws.Conn, crewID, name, by, ip string) (store.Device, map[string]any, bool) {
+	d, token, err := s.St.CreateDevice(crewID, name, by)
+	if err != nil {
+		_ = conn.WriteText(marshal(map[string]any{"type": "error", "code": "pairing_failed", "error": err.Error()}))
+		return store.Device{}, nil, false
+	}
+	s.St.Audit(store.AuditEntry{Actor: "device:" + d.ID, Role: "device", IP: ip, Action: "PAIR", Target: crewID, Result: 1})
+	s.St.Chain("DEVICE_PAIRED", crewID, d.ID, map[string]any{"name": d.Name, "by": by})
+	s.Hub.Console(map[string]any{"type": "devices"})
+	return d, map[string]any{"type": "paired", "deviceId": d.ID, "token": token, "crewId": crewID}, true
 }
 
 func (s *Server) wsDevice(w http.ResponseWriter, r *http.Request) {
@@ -166,8 +286,8 @@ func (s *Server) wsDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var hello envelope
-	if json.Unmarshal(b, &hello) != nil || hello.Type != "hello" || !s.Eng.Known(hello.CrewID) {
-		_ = conn.WriteText(marshal(map[string]any{"type": "error", "error": "unknown crew member: send {type:'hello', crewId:'AST-001'}"}))
+	if json.Unmarshal(b, &hello) != nil || hello.Type != "hello" {
+		_ = conn.WriteText(marshal(map[string]any{"type": "error", "code": "bad_hello", "error": "the first message must be {type:'hello', ...}"}))
 		return
 	}
 	name := strings.TrimSpace(hello.Device)
@@ -177,12 +297,21 @@ func (s *Server) wsDevice(w http.ResponseWriter, r *http.Request) {
 	if len(name) > 60 {
 		name = name[:60]
 	}
+	dev, paired, ok := s.authenticateDevice(conn, hello, name, hostOnly(conn.RemoteAddr()))
+	if !ok {
+		return
+	}
 	c := newClient(conn)
-	c.crewID, c.name = hello.CrewID, name
+	c.crewID, c.deviceID, c.name = dev.CrewID, dev.ID, name
 	defer c.close()
 	s.Hub.addDevice(c)
+	s.St.TouchDevice(dev.ID, store.Now(), 0)
 	s.Eng.DeviceOnline(c.crewID, name+" · "+hostOnly(conn.RemoteAddr()))
+	if paired != nil {
+		c.send(marshal(paired)) // the phone stores its device token
+	}
 	c.send(marshal(s.Eng.Welcome(c.crewID)))
+	s.replayOutbox(c) // instructions / buddy alerts / aborts it missed
 
 	for {
 		_ = conn.SetReadDeadline(time.Now().Add(60 * time.Second))
@@ -199,9 +328,13 @@ func (s *Server) wsDevice(w http.ResponseWriter, r *http.Request) {
 			var smp model.Sample
 			if json.Unmarshal(b, &smp) == nil {
 				smp.CrewID = c.crewID
+				smp.EventID = eventID(c.deviceID, smp.Seq)
 				s.Eng.Ingest(smp, "device")
 			}
 		case "batch":
+			for i := range env.Items {
+				env.Items[i].EventID = eventID(c.deviceID, env.Items[i].Seq)
+			}
 			n, _ := s.Eng.IngestBatch(c.crewID, env.Items, "device")
 			c.send(marshal(map[string]any{"type": "batch-ok", "n": n}))
 		case "queue":
@@ -229,9 +362,11 @@ func (s *Server) wsDevice(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		case "ack":
-			if _, err := s.Eng.AckByCrew(env.AlertID, env.Response, c.crewID); err != nil {
+			if _, err := s.Eng.AckByCrew(env.AlertID, env.Response, c.crewID, c.deviceID); err != nil {
 				c.send(marshal(map[string]any{"type": "error", "error": err.Error()}))
 			}
+		case "msg-ack":
+			s.St.MarkDelivered(c.crewID, env.MsgID)
 		case "incident":
 			_, _ = s.Eng.ReportIncident(c.crewID, "crew:"+c.crewID)
 		case "ping":
@@ -241,6 +376,14 @@ func (s *Server) wsDevice(w http.ResponseWriter, r *http.Request) {
 	if s.Hub.removeDevice(c) {
 		s.Eng.DeviceOffline(c.crewID)
 	}
+}
+
+// eventID is the unique id of a phone reading: "<device id>:<sequence>".
+func eventID(deviceID string, seq int64) string {
+	if deviceID == "" || seq <= 0 {
+		return ""
+	}
+	return deviceID + ":" + strconv.FormatInt(seq, 10)
 }
 
 func hostOnly(addr string) string {
@@ -253,8 +396,12 @@ func hostOnly(addr string) string {
 // OnCommit acknowledges stored readings to each phone (store-and-forward):
 // the phone deletes its queued readings up to that sequence number.
 func (s *Server) OnCommit(maxSeq map[string]int64) {
+	now := store.Now()
 	for crew, seq := range maxSeq {
 		s.Hub.Device(crew, map[string]any{"type": "ack-seq", "seq": seq})
+		if id := s.Hub.DeviceID(crew); id != "" {
+			s.St.TouchDevice(id, now, seq) // sync state per paired phone
+		}
 	}
 }
 
@@ -523,21 +670,31 @@ func (s *Server) apiDatabaseHealth(w http.ResponseWriter, r *http.Request) {
 		status = 500
 	}
 	writeJSON(w, status, map[string]any{
-		"ok":         ok,
-		"database":   "SQLite",
-		"integrity":  integrity,
+		"ok":          ok,
+		"database":    "SQLite",
+		"integrity":   integrity,
 		"journalMode": "WAL",
-		"counts":     counts,
-		"checkedAt":  time.Now().UnixMilli(),
+		"counts":      counts,
+		"checkedAt":   time.Now().UnixMilli(),
 	})
 }
 
 func (s *Server) apiChain(w http.ResponseWriter, r *http.Request) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	q := r.URL.Query()
+	limit, _ := strconv.Atoi(q.Get("limit"))
 	if limit <= 0 || limit > 1000 {
 		limit = 150
 	}
-	list, err := s.St.ChainList(limit)
+	from, _ := strconv.ParseInt(q.Get("from"), 10, 64)
+	to, _ := strconv.ParseInt(q.Get("to"), 10, 64)
+	var list []model.ChainEntry
+	var err error
+	if q.Get("crew") != "" || q.Get("kind") != "" || from > 0 || to > 0 {
+		// Search / filter by astronaut, event kind and time window
+		list, err = s.St.ChainSearch(store.ChainFilter{CrewID: q.Get("crew"), Kind: q.Get("kind"), From: from, To: to, Limit: limit})
+	} else {
+		list, err = s.St.ChainList(limit)
+	}
 	if err != nil {
 		writeErr(w, 500, err)
 		return

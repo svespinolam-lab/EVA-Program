@@ -113,7 +113,7 @@ func TestPhoneLinkTelemetryAckAndDedup(t *testing.T) {
 	defer ts.Close()
 
 	ph := dialWS(t, ts.URL, "/ws/device")
-	ph.send(t, map[string]any{"type": "hello", "crewId": "AST-001", "device": "test phone"})
+	ph.send(t, pairedHello(t, srv, "AST-001"))
 	welcome := ph.next(t, "welcome", 5*time.Second)
 	if welcome["crewId"] != "AST-001" {
 		t.Fatalf("welcome = %v", welcome)

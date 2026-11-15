@@ -91,7 +91,7 @@ func openFor(e *Engine, crew, metric string) *model.Alert {
 
 func TestHypoxiaRaisesAlertEscalatesAt30sAndResolves(t *testing.T) {
 	now := fakeClock(t, 1_800_000_000_000)
-	e, _, rec := newTestEngine(t)
+	e, st, rec := newTestEngine(t)
 	if _, err := e.StartMission(); err != nil {
 		t.Fatal(err)
 	}
@@ -138,6 +138,9 @@ func TestHypoxiaRaisesAlertEscalatesAt30sAndResolves(t *testing.T) {
 	got, err := e.Ack(a.ID, "IM_OK", "crew")
 	if err != nil || got.Response != "IM_OK" || got.RespondedBy != "crew" {
 		t.Fatalf("ack = %+v, %v", got, err)
+	}
+	if rs, err := st.AlertResponses(a.ID); err != nil || len(rs) != 1 || rs[0].Response != "IM_OK" || rs[0].By != "crew" {
+		t.Fatalf("response history = %+v, %v", rs, err)
 	}
 
 	// SpO₂ recovers: the alert resolves on its own (hysteresis: 5 normal readings).
@@ -221,13 +224,13 @@ func TestPhoneCannotAcknowledgeAnotherCrewAlert(t *testing.T) {
 	if a == nil {
 		t.Fatal("no alert raised")
 	}
-	if _, err := e.AckByCrew(a.ID, "IM_OK", "AST-002"); err == nil {
+	if _, err := e.AckByCrew(a.ID, "IM_OK", "AST-002", ""); err == nil {
 		t.Fatal("AST-002 acknowledged an alert of AST-001")
 	}
 	if x := openFor(e, "AST-001", "spo2"); x == nil || x.Response != "PENDING" {
 		t.Fatalf("foreign ack changed the alert: %+v", x)
 	}
-	if got, err := e.AckByCrew(a.ID, "COPIED", "AST-001"); err != nil || got.Response != "COPIED" {
+	if got, err := e.AckByCrew(a.ID, "COPIED", "AST-001", ""); err != nil || got.Response != "COPIED" {
 		t.Fatalf("own ack = %+v, %v", got, err)
 	}
 }

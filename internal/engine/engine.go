@@ -175,6 +175,7 @@ func New(st *store.Store) (*Engine, error) {
 	for _, id := range e.order {
 		e.evaluate(e.cs[id], now, false)
 	}
+	e.syncProtocols()
 	return e, nil
 }
 
@@ -556,7 +557,7 @@ func (e *Engine) resolveAlert(oa *openAlert, now int64) {
 // AckByCrew records a response sent from a phone. A phone may only answer
 // alerts about its own crew member: another phone must not be able to
 // silence someone else's emergency. Unknown and foreign alerts look the same.
-func (e *Engine) AckByCrew(id int64, response, crewID string) (model.Alert, error) {
+func (e *Engine) AckByCrew(id int64, response, crewID, actor string) (model.Alert, error) {
 	e.mu.Lock()
 	owner := ""
 	if oa := e.open[id]; oa != nil {
@@ -571,12 +572,18 @@ func (e *Engine) AckByCrew(id int64, response, crewID string) (model.Alert, erro
 	if owner == "" || owner != crewID {
 		return model.Alert{}, errors.New("alert not found")
 	}
-	return e.Ack(id, response, "crew")
+	return e.AckAs(id, response, "crew", actor)
 }
 
 // Ack records a response to an alert: by "crew" (from the phone) or
 // "operator" (from the console). response: COPIED | IM_OK | NEED_HELP.
 func (e *Engine) Ack(id int64, response, by string) (model.Alert, error) {
+	return e.AckAs(id, response, by, "")
+}
+
+// AckAs is Ack with the identity of who answered (device id or user id),
+// kept in the alert response history.
+func (e *Engine) AckAs(id int64, response, by, who string) (model.Alert, error) {
 	switch response {
 	case "COPIED", "IM_OK", "NEED_HELP":
 	default:
@@ -605,6 +612,7 @@ func (e *Engine) Ack(id int64, response, by string) (model.Alert, error) {
 		oa.a = a
 	}
 	_ = e.st.UpdateAlert(a)
+	e.st.AddAlertResponse(store.AlertResponse{AlertID: id, T: now, Response: response, By: by, Actor: who})
 	e.st.Chain("ALERT_ACK", a.CrewID, strconv.FormatInt(id, 10), map[string]any{"response": response, "by": by, "responseS": rs})
 	actor := "operator"
 	if by == "crew" {
@@ -710,6 +718,7 @@ func (e *Engine) StartMission() (model.Mission, error) {
 		return e.mission, err
 	}
 	e.mission.Status, e.mission.StartedAt = "ACTIVE", &now
+	e.applyMissionCrew()
 	for _, cs := range e.cs {
 		cs.dose = 0
 	}

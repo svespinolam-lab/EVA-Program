@@ -11,12 +11,13 @@ import (
 // client is one WebSocket connection with its own writer goroutine and a
 // bounded queue: a slow console never blocks the engine.
 type client struct {
-	conn   *ws.Conn
-	out    chan []byte
-	quit   chan struct{}
-	once   sync.Once
-	crewID string // phones only
-	name   string
+	conn     *ws.Conn
+	out      chan []byte
+	quit     chan struct{}
+	once     sync.Once
+	crewID   string // phones only
+	deviceID string // paired device id (phones only)
+	name     string
 }
 
 func newClient(conn *ws.Conn) *client {
@@ -115,6 +116,34 @@ func (h *Hub) DevicesExcept(crewID string, msg any) {
 			c.send(b)
 		}
 	}
+}
+
+// DeviceID returns the paired device id of the phone linked for a crew member.
+func (h *Hub) DeviceID(crewID string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if c := h.devices[crewID]; c != nil {
+		return c.deviceID
+	}
+	return ""
+}
+
+// CloseDevice disconnects the phone using a (revoked) device id.
+func (h *Hub) CloseDevice(deviceID string) bool {
+	h.mu.Lock()
+	var c *client
+	for _, x := range h.devices {
+		if x.deviceID == deviceID {
+			c = x
+		}
+	}
+	h.mu.Unlock()
+	if c == nil {
+		return false
+	}
+	c.send(marshal(map[string]any{"type": "error", "code": "device_revoked", "error": "This phone was unpaired by EVA Station"}))
+	time.AfterFunc(300*time.Millisecond, c.close)
+	return true
 }
 
 // Online reports whether a phone is linked for a crew member.

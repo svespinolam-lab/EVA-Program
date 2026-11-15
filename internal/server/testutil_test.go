@@ -16,7 +16,8 @@ const testToken = "test-operator-token-0123456789"
 // temporary database, exactly like cmd/eva-station does.
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
-	st, err := store.Open(filepath.Join(t.TempDir(), "eva-test.db"))
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "eva-station.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,9 +37,20 @@ func newTestServer(t *testing.T) *Server {
 		"pc/index.html":     {Data: []byte("<p>eva console</p>")},
 		"shared/tokens.css": {Data: []byte(":root{}")},
 	}
-	srv := &Server{Eng: eng, St: st, Sim: sm, Hub: NewHub(), Web: web, OperatorToken: testToken}
+	srv := &Server{Eng: eng, St: st, Sim: sm, Hub: NewHub(), Web: web, OperatorToken: testToken, DataDir: dir}
 	st.OnCommit = srv.OnCommit
-	eng.SetEmitter(srv.Hub)
+	eng.SetEmitter(srv.Emitter())
 	eng.SetVirtualSuits(sm)
 	return srv
+}
+
+// pairedHello pairs a phone for crewID directly in the store (as the console
+// would) and returns the hello message that phone sends.
+func pairedHello(t *testing.T, srv *Server, crewID string) map[string]any {
+	t.Helper()
+	d, token, err := srv.St.CreateDevice(crewID, "test phone", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return map[string]any{"type": "hello", "crewId": crewID, "device": "test phone", "deviceId": d.ID, "token": token}
 }

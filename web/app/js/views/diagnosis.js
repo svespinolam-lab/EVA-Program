@@ -428,6 +428,71 @@
     });
   }
 
+  /* 4b · Complete daily physical-health panel (manual + sensor sources) */
+  var PHYSICAL = [
+    {key:'hr',label:'Resting heart rate',unit:'bpm',method:'Wearable HR band · 5 min seated',source:'sensor',why:'Early signal of cardiovascular strain, infection or dehydration.'},
+    {key:'hrv',label:'Heart-rate variability (RMSSD)',unit:'ms',method:'Wearable band · overnight',source:'sensor',why:'Tracks recovery and physiological stress against personal baseline.'},
+    {key:'bp',label:'Blood pressure',unit:'mmHg',method:'Bluetooth cuff or manual cuff · seated after 5 min',source:'manual',why:'Screens cardiovascular load and fluid-shift effects.'},
+    {key:'orthostatic',label:'Orthostatic blood-pressure drop',unit:'mmHg',method:'Cuff: lying, then standing at 1 and 3 min',source:'manual',why:'Checks dizziness and intolerance when returning to gravity.'},
+    {key:'spo2',label:'Blood oxygen (SpO₂)',unit:'%',method:'Bluetooth fingertip oximeter',source:'sensor',why:'Monitors oxygenation in a closed habitat or suit.'},
+    {key:'temp',label:'Body temperature',unit:'°C',method:'Bluetooth forehead or ear thermometer',source:'sensor',why:'Flags possible fever or cooling-system problems.'},
+    {key:'rr',label:'Respiratory rate',unit:'breaths/min',method:'Count breaths for 60 seconds or respiratory sensor',source:'manual',why:'Screens respiratory changes and possible CO₂-related problems.'},
+    {key:'glucose',label:'Fasting blood glucose',unit:'mg/dL',method:'Bluetooth glucometer · finger-prick',source:'manual',why:'Tracks metabolic changes; record fasting status.'},
+    {key:'sleep',label:'Sleep duration',unit:'hours',method:'Actigraphy wearable or manual entry',source:'manual',why:'Tracks circadian disruption and accumulated fatigue.'},
+    {key:'weight',label:'Body mass',unit:'kg',method:'Adapted spacecraft scale · manual entry',source:'manual',why:'Tracks nutritional status and muscle-mass changes.'},
+    {key:'hydration',label:'Hydration (urine colour scale)',unit:'1–8',method:'Compare with the hydration colour card',source:'manual',why:'Helps identify dehydration and renal-stone risk.'},
+    {key:'rad',label:'Accumulated radiation dose',unit:'mSv',method:'Personal dosimeter',source:'sensor',why:'Tracks mission and career radiation exposure.'}
+  ];
+  var SENSOR_KEYS = {hr:'hr',hrv:'hrv',spo2:'spo2',temp:'temp',rad:'rad'};
+  var PHYSICAL_GUIDANCE = {
+    hr:'Green: 50–90 bpm or within ±10 bpm of baseline. Observe: 91–110 or +10–20 over baseline. Red: >110 at rest, <40 with dizziness, or +20 over baseline for 3 days.',
+    hrv:'Use personal baseline only. Observe: 15–30% below baseline. Review: >30% below baseline or falling for 3 days.',
+    bp:'Green: below 120/80 mmHg. Observe: 120–139 or 80–89. Red: ≥140/90; urgent review at ≥180/120.',
+    orthostatic:'Review: systolic drop ≥20 mmHg, diastolic drop ≥10 mmHg, fainting or marked dizziness.',
+    spo2:'Green: ≥95%. Observe: 92–94%. Red: <92% or <95% with shortness of breath.',
+    temp:'Green: 36.1–37.2 °C. Observe: 37.3–38.0 °C. Red: >38.0 °C or <35.5 °C.',
+    rr:'Green: 12–20 breaths/min. Observe: 21–24 or 10–11. Red: >24 or <10.',
+    glucose:'Green fasting: 70–99 mg/dL. Observe: 100–125 or 60–69. Red: ≥126 or <54; follow flight-surgeon protocol.',
+    sleep:'Green: 7–9 h. Observe: 6–7 h. Review: <6 h or 3 nights in a row below 6 h.',
+    weight:'Observe: 2–5% change in 2 weeks. Red: >5% loss in 30 days.',
+    hydration:'Green: 1–3. Observe: 4–5. Red: ≥6 or no urination for 8 h.',
+    rad:'Green: <50% of mission budget. Observe: 50–80%. Red: >80% or solar-particle-event warning.'
+  };
+  function manualValues(id) {
+    var all = App.store.get('physicalManual') || {};
+    return all[id] || {};
+  }
+  function physicalValue(key, data, saved) {
+    if (SENSOR_KEYS[key] && data && isNum(data[SENSOR_KEYS[key]]) && isConnected(App.crew.selected().id, SENSOR_KEYS[key])) return data[SENSOR_KEYS[key]];
+    if (key === 'bp' && data && isNum(data.bpSys) && isNum(data.bpDia) && data.bpAt) return data.bpSys + '/' + data.bpDia;
+    return saved && saved[key] != null && saved[key] !== '' ? saved[key] : null;
+  }
+  function physicalCard(p, member, data, saved) {
+    var v = physicalValue(p.key, data, saved);
+    var sensorKey = SENSOR_KEYS[p.key];
+    var status = sensorKey && App.telemetry && App.telemetry.status ? App.telemetry.status(member.id, sensorKey) : '';
+    var simulated = sensorKey && !App.link?.isLinked?.();
+    var sourceLabel = sensorKey ? (status === 'connected' ? (simulated ? 'Demo stream · hardware not paired' : 'Sensor connected') : 'Sensor not connected') : 'Manual entry / external device';
+    var value = v == null ? '<span class="dx-missing">No measurement yet</span>' : '<b>' + esc(String(v)) + '</b> <small>' + esc(p.unit) + '</small>';
+    var input = p.source === 'manual' ? '<label class="field"><span class="field__label">Enter value</span><input class="input" type="number" inputmode="decimal" step="any" data-physical-input="' + p.key + '" value="' + esc(saved[p.key] == null ? '' : saved[p.key]) + '" placeholder="Not recorded"></label>' : '';
+    return '<article class="card" data-physical-card="' + p.key + '"><div class="row-between"><b>' + esc(p.label) + '</b><span class="chip" data-tone="' + (sensorKey && status !== 'connected' ? 'warning' : 'accent') + '">' + esc(sourceLabel) + '</span></div><p class="dx-physical-value">' + value + '</p><p class="subtle">' + esc(p.method) + '</p>' + input + '<details><summary>Why it matters · ranges · action</summary><p>' + esc(p.why) + '</p><p>' + esc(PHYSICAL_GUIDANCE[p.key]) + '</p><p class="subtle">Prototype guidance only. Contact the flight surgeon for interpretation.</p></details></article>';
+  }
+  function physicalSectionHTML(member, data) {
+    var saved = manualValues(member.id);
+    return '<section class="section" id="dx-physical-complete" aria-label="Complete physical health"><div class="section__head"><div><p class="eyebrow">Daily measurements · 12 indicators</p><h2 class="section__title">Physical health</h2></div></div><div class="card dx-physical-notice"><b>Sensor connection status</b><p>All 12 parameters remain visible. If a sensor is not paired, its card says so; no missing value is treated as normal. Browser demo streams are simulated, not readings from suit hardware.</p></div><div class="dx-physical-grid">' + PHYSICAL.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div><p class="subtle">Manual entries are stored on this phone only. They are not sent to EVA Station.</p></section>';
+  }
+  function savePhysicalInput(e) {
+    var input = e.target.closest('[data-physical-input]');
+    if (!input || !st || !st.root.contains(input)) return;
+    var key = input.getAttribute('data-physical-input');
+    var all = App.store.get('physicalManual') || {};
+    var member = st.memberId;
+    var row = Object.assign({}, all[member] || {});
+    row[key] = input.value === '' ? null : Number(input.value);
+    all[member] = row;
+    App.store.set({physicalManual:all});
+  }
+
   /* 5 · Blackbox */
   function blackboxItems(member) {
     if (!App.blackbox || typeof App.blackbox.list !== 'function') return null;
@@ -555,7 +620,7 @@
     destroy();
     var member = App.crew.selected();
     st = { root: root, memberId: member ? member.id : null, iv: false, sig: {}, timer: null, tlTimer: null };
-    root.addEventListener('click', onClick);
+    root.addEventListener('click', onClick);\n    root.addEventListener('change', savePhysicalInput);
     if (!member) {
       root.innerHTML = App.ui.empty('users', 'No crew configured.');
       return;
@@ -569,7 +634,7 @@
       root.innerHTML =
         heroHTML(member, a) +
         mentalSectionHTML(member, a) +
-        groupSectionHTML('bio', member, a, data) +
+        groupSectionHTML('bio', member, a, data) +\n        physicalSectionHTML(member, data) +
         groupSectionHTML('suit', member, a, data) +
         logSectionHTML(member);
       st.sig.findings = findingsSig(a);
@@ -589,11 +654,11 @@
       var a = p.assessment || getRisk(member.id);
       if (!st.iv) {
         updateHero(a);
-        updateGroups(member, a, getData(member.id));
+        updateGroups(member, a, getData(member.id));\n        var ph = q('#dx-physical-complete'); if (ph) setHTML(ph, physicalSectionHTML(member, getData(member.id)));
       }
       updateMental(member, a);
     } else if ((evt === 'telemetry' || evt === 'sensor') && mine && !st.iv) {
-      updateGroups(member, getRisk(member.id), getData(member.id));
+      updateGroups(member, getRisk(member.id), getData(member.id));\n      var ph = q('#dx-physical-complete'); if (ph) setHTML(ph, physicalSectionHTML(member, getData(member.id)));
     } else if (evt === 'checkin' && mine) {
       updateMental(member, getRisk(member.id));
     } else if (evt === 'blackbox' && !st.iv) {
@@ -603,7 +668,7 @@
 
   function destroy() {
     if (!st) return;
-    st.root.removeEventListener('click', onClick);
+    st.root.removeEventListener('click', onClick);\n    st.root.removeEventListener('change', savePhysicalInput);
     clearInterval(st.timer);
     clearTimeout(st.tlTimer);
     st = null;

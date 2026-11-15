@@ -13,6 +13,10 @@ EVA supports a crew during extravehicular activities on the Moon or Mars **witho
 
 ## Quick start
 
+**Easiest (no install, Windows):** Code → Download ZIP → unzip → double-click **`EVA-Station.bat`** (uses the ready-made `dist/eva-station.exe`).
+
+To rebuild after changing Go code:
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\build.ps1   # needs Go ≥ 1.26 → dist\eva-station.exe
 dist\eva-station.exe                                        # PC: http://localhost:8080 · phones: http://<PC-IP>:8080/app/

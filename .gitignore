@@ -3,8 +3,8 @@ data/
 *.db
 *.db-wal
 *.db-shm
-# build output (rebuild with tools/build.ps1)
-dist/
+# build output: dist/eva-station.exe and dist/eva-app.html ARE committed
+# so the team can run the system without installing Go
 # local backups
 _backup/
 # editors / OS

@@ -14,6 +14,14 @@ EVA es un sistema de monitoreo biomédico para caminatas espaciales (EVA) que fu
 
 > Concepto demostrativo con datos simulados: **no es un dispositivo médico**.
 
+## ⚡ Forma más rápida (sin instalar nada)
+
+1. En GitHub: **Code → Download ZIP** y descomprímelo (o `git clone https://github.com/svespinolam-lab/EVA-Program.git`).
+2. Doble clic en **`EVA-Station.bat`**. Se abre el programa de PC en <http://localhost:8080>.
+3. En el celular (misma Wi-Fi) abre la dirección que muestra la ventana negra + `/app/`.
+
+Para modificar: edita los archivos de `web/` (interfaces) y recarga el navegador; si cambias código Go (`internal/`, `cmd/`), vuelve a compilar con `tools\build.ps1`.
+
 ---
 
 ## 1. Requisitos

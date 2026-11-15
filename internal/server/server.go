@@ -53,6 +53,7 @@ func (s *Server) Handler() http.Handler {
 
 	// Data and actions
 	mux.HandleFunc("GET /api/info", s.apiInfo)
+	mux.HandleFunc("GET /api/health/database", s.apiDatabaseHealth)
 	mux.HandleFunc("GET /api/state", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, s.Eng.Snapshot()) })
 	mux.HandleFunc("POST /api/mission/start", s.apiMission("start"))
 	mux.HandleFunc("POST /api/mission/end", s.apiMission("end"))
@@ -483,6 +484,33 @@ func (s *Server) apiSimVirtual(w http.ResponseWriter, r *http.Request) {
 	s.Sim.SetEnabled(body.CrewID, body.On)
 	s.broadcastSim()
 	writeJSON(w, 200, map[string]any{"ok": true})
+}
+
+// apiDatabaseHealth performs a read-only SQLite integrity check and reports row counts.
+func (s *Server) apiDatabaseHealth(w http.ResponseWriter, r *http.Request) {
+	s.St.Flush()
+	if err := s.St.R.Ping(); err != nil {
+		writeJSON(w, 503, map[string]any{"ok": false, "database": "unavailable", "error": err.Error()})
+		return
+	}
+	var integrity string
+	if err := s.St.R.QueryRow("PRAGMA integrity_check").Scan(&integrity); err != nil {
+		writeJSON(w, 500, map[string]any{"ok": false, "database": "check_failed", "error": err.Error()})
+		return
+	}
+	counts := map[string]int64{}
+	for _, table := range []string{"crew", "missions", "telemetry", "alerts", "incidents", "readiness", "oplog"} {
+		var n int64
+		if err := s.St.R.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&n); err != nil {
+			writeJSON(w, 500, map[string]any{"ok": false, "database": "query_failed", "table": table, "error": err.Error()})
+			return
+		}
+		counts[table] = n
+	}
+	ok := integrity == "ok"
+	status := 200
+	if !ok { status = 500 }
+	writeJSON(w, status, map[string]any{"ok": ok, "database": "SQLite", "integrity": integrity, "journalMode": "WAL", "counts": counts, "checkedAt": time.Now().UnixMilli()})
 }
 
 func (s *Server) apiChain(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,111 @@
+/* EVA · Profile. Uses theme tokens and the .pf- prefix. */
+
+.pf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  min-width: 0;
+}
+
+/* Small buttons with full 44 px touch targets */
+.pf .section__head .btn,
+.pf-hero__state .btn { min-height: var(--tap); }
+
+/* Crew member header */
+.pf-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.pf-hero .avatar { margin: 4px; }            /* Keep the risk ring visible */
+.pf-hero__text { flex: 1; min-width: 0; display: grid; gap: var(--sp-2); }
+.pf-hero__name {
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-tight);
+  overflow-wrap: anywhere;
+}
+.pf-hero__meta {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px var(--sp-2);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.pf-role {
+  display: inline-flex; align-items: center;
+  height: 24px; padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.pf-hero__spec { min-width: 0; }
+.pf-hero__state {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+}
+.pf-hero__state .btn--ghost { padding-inline: 8px; }
+.pf-hero__note {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.pf-hero__note .icon { width: 16px; height: 16px; }
+
+/* Key/value lists */
+.pf-kv dt, .pf-kv dd { margin: 0; }
+.pf-kv__flag {
+  display: inline-flex; align-items: center; justify-content: flex-end;
+  gap: 6px;
+  font-weight: 600;
+}
+.pf-kv__flag .icon { width: 16px; height: 16px; color: var(--accent); }
+
+/* Pre-mission measurements */
+.pf-tile {
+  align-content: start;
+  background: var(--surface);
+  border-color: var(--line);
+}
+.pf-tile__value {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  column-gap: 4px;
+  font-size: var(--fs-xl);
+  white-space: normal;
+}
+.pf-tile__num { white-space: nowrap; }
+.pf-tile__value .value__unit { margin-left: 0; }
+.pf-tile__now {
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Edit form */
+.pf-form { display: grid; gap: var(--sp-4); }
+.pf-form__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: var(--sp-3);
+}
+.pf-form__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+.pf-form__restore { justify-self: center; min-height: var(--tap); }
+.pf-form .input[aria-invalid="true"] { border-color: var(--critical); }
+.pf-error {
+  color: var(--critical);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+@media (max-width: 340px) {
+  .pf-form__row { grid-template-columns: minmax(0, 1fr); }
+  .pf-hero { align-items: flex-start; }
+}

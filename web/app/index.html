@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en" translate="no" class="notranslate" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<!-- The app is English-only: stop browser auto-translation (Chrome/Safari/Google Translate).
+     Live values re-render every second, so a translator flickers between languages and
+     mistranslates short codes (e.g. the initials "AR" become "Arkansas"). -->
+<meta name="google" content="notranslate">
+<title>EVA</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="EVA biomedical support: live suit telemetry, risk assessment, voice alerts, and a biomedical blackbox for the crew inside the spacecraft.">
+<meta name="theme-color" content="#08111F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="../shared/logo.png" type="image/png">
+
+<!-- NASA design system (HDS) typography: Inter, Public Sans, and DM Mono -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@500;600;700&family=Public+Sans:wght@400;500;600&display=swap">
+
+<!-- Styles: tokens, base, shell, controls, then views -->
+<link rel="stylesheet" href="../shared/css/tokens.css">
+<link rel="stylesheet" href="../shared/css/base.css">
+<link rel="stylesheet" href="css/shell.css">
+<link rel="stylesheet" href="../shared/css/controls.css">
+<link rel="stylesheet" href="css/views/log.css">
+<link rel="stylesheet" href="css/views/diagnosis.css">
+<link rel="stylesheet" href="css/views/profile.css">
+<link rel="stylesheet" href="css/views/settings.css">
+<link rel="stylesheet" href="css/views/link.css">
+<link rel="stylesheet" href="css/views/guide.css">
+</head>
+<body>
+
+<!-- 1 · SPLASH SCREEN -->
+<div class="splash" id="splash" role="status" aria-live="polite">
+  <canvas class="splash__stars" id="splash-stars" aria-hidden="true"></canvas>
+  <div class="splash__center">
+    <div class="splash__orbit">
+      <!-- Mission logo; configured in js/config.js -->
+      <img class="splash__logo" id="splash-logo" src="../shared/logo.png" alt="Mission logo">
+    </div>
+    <div class="stack" style="gap: 6px">
+      <p class="splash__name" id="splash-name">EVA</p>
+      <p class="eyebrow" id="splash-tagline">EVA biomedical support</p>
+    </div>
+    <ul class="splash__steps eyebrow" id="splash-steps"></ul>
+    <button class="splash__skip" id="splash-skip" type="button">Tap to enter</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+
+  <!-- Fixed header: voice, title, menu, crew, and risk alert -->
+  <header class="topbar" id="topbar">
+    <div class="topbar__bar gutter">
+      <button class="icon-btn" id="btn-voice" type="button" aria-pressed="false" aria-label="Enable voice alerts">
+        <span data-icon="volumeOff"></span>
+      </button>
+      <div class="topbar__title">
+        <p class="topbar__meta eyebrow"><span class="live-dot" id="live-dot"></span><span id="eva-clock">EVA · T+00:00:00</span></p>
+        <h1 id="view-title">Log</h1>
+      </div>
+      <button class="icon-btn" id="btn-menu" type="button" aria-label="Open settings" aria-controls="drawer" aria-expanded="false">
+        <span data-icon="menu"></span>
+      </button>
+    </div>
+    <div class="gutter">
+      <div class="crew" id="crew" role="group" aria-label="Selected crew member"></div>
+      <button type="button" class="station-chip" id="station-chip" data-state="off" aria-label="Station link settings">○ Station off</button>
+      <div id="alert-slot" aria-live="assertive"></div>
+      <div class="station-banners" id="station-banners" aria-live="assertive"></div>
+    </div>
+  </header>
+
+  <!-- Log, Diagnosis, and Profile render here (js/views/*.js) -->
+  <main class="view gutter" id="main" tabindex="-1"></main>
+</div>
+
+<!-- NAVIGATION BAR -->
+<nav class="tabbar" id="tabbar" aria-label="Sections">
+  <a class="tab" href="#log" data-view="log"><span class="tab__dot"><span data-icon="clipboard"></span></span>Log</a>
+  <a class="tab" href="#diagnosis" data-view="diagnosis"><span class="tab__dot"><span data-icon="activity"></span></span>Diagnosis</a>
+  <a class="tab" href="#profile" data-view="profile"><span class="tab__dot"><span data-icon="user"></span></span>Profile</a>
+</nav>
+
+<!-- SETTINGS DRAWER -->
+<div class="scrim" id="drawer-scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Settings" inert></aside>
+
+<!-- BOTTOM SHEET (export, reports, roles) -->
+<div class="scrim scrim--sheet" id="sheet-scrim"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" inert>
+  <div class="sheet__handle" aria-hidden="true"></div>
+  <div class="sheet__head gutter">
+    <h2 id="sheet-title"></h2>
+    <button class="icon-btn" id="sheet-close" type="button" aria-label="Close"><span data-icon="close"></span></button>
+  </div>
+  <div class="sheet__body gutter" id="sheet-body"></div>
+</section>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- EVA STATION LINK: alert acknowledgement bar and EVA-abort overlay (js/engine/link.js) -->
+<div class="station-acks" id="station-acks" aria-live="assertive"></div>
+<div class="station-abort" id="station-abort" role="alertdialog" aria-modal="true" aria-labelledby="station-abort-title" hidden></div>
+
+<!-- SCRIPTS (load order matters) -->
+<script src="js/config.js" defer></script>
+<script src="js/core.js" defer></script>
+<script src="../shared/js/icons.js" defer></script>
+<script src="js/ui/ui.js" defer></script>
+<!-- Engine: suit data, risk, voice, and blackbox -->
+<script src="js/engine/telemetry.js" defer></script>
+<script src="js/engine/ble.js" defer></script>
+<script src="js/engine/risk.js" defer></script>
+<script src="js/engine/voice.js" defer></script>
+<script src="js/engine/blackbox.js" defer></script>
+<script src="js/engine/link.js" defer></script>
+<script src="js/engine/measurements.js" defer></script>
+<script src="js/engine/mental.js" defer></script>
+<script src="js/engine/cycle.js" defer></script>
+<!-- Views -->
+<script src="js/views/log.js" defer></script>
+<script src="js/views/diagnosis.js" defer></script>
+<script src="js/views/profile.js" defer></script>
+<script src="js/views/settings.js" defer></script>
+<script src="js/views/guide.js" defer></script>
+<!-- Startup -->
+<script src="js/app.js" defer></script>
+</body>
+</html>

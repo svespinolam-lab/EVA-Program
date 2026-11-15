@@ -1,0 +1,46 @@
+name: EVA Go verification
+on:
+  push:
+    branches: [main, integracion-eva, "fase-*"]
+  pull_request:
+    branches: [main]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+      - name: Unit tests (engine, store, server security and WebSocket)
+        run: go test -count=1 ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Build station (offline binary, no cgo)
+        run: CGO_ENABLED=0 go build -trimpath ./cmd/eva-station
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Syntax-check phone app, console and shared JavaScript
+        run: |
+          set -e
+          for f in web/app/js/*.js web/app/js/*/*.js web/pc/js/*.js web/shared/js/*.js tools/*.mjs; do
+            node --check "$f"
+          done
+      - name: Phone app logic tests (node, no dependencies)
+        run: |
+          set -e
+          for t in tools/tests/*.test.mjs; do node "$t"; done
+
+  race:
+    name: Race detector (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+      - run: go test -race -count=1 ./...

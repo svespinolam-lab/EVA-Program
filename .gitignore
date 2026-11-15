@@ -1,0 +1,14 @@
+# runtime database (created by eva-station.exe)
+data/
+*.db
+*.db-wal
+*.db-shm
+# build output: dist/eva-station.exe and dist/eva-app.html ARE committed
+# so the team can run the system without installing Go
+# local backups
+_backup/
+# editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

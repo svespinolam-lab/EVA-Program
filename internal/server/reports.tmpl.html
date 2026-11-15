@@ -1,0 +1,198 @@
+{{/* EVA Station · printable reports (Print → Save as PDF). Shared design tokens. */}}
+
+{{define "head"}}<!doctype html>
+<html lang="en" translate="no" class="notranslate" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.}} · EVA Station</title>
+<link rel="icon" href="/shared/logo.png" type="image/png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/shared/css/tokens.css">
+<link rel="stylesheet" href="/css/report.css">
+</head>
+<body class="report">
+<div class="report__bar no-print">
+  <a class="report__back" href="/#reports">← Back to EVA Station</a>
+  <button type="button" class="report__print" onclick="window.print()">Print / Save as PDF</button>
+</div>
+<main class="report__page">
+{{end}}
+
+{{define "foot"}}
+<footer class="report__foot">
+  <span>EVA Station · deterministic rules, no machine learning · generated {{now}}</span>
+  <span>Concept demonstrator with simulated data — not a medical device.</span>
+</footer>
+</main>
+</body>
+</html>{{end}}
+
+{{define "brand"}}
+<header class="report__head">
+  <img src="/shared/logo.png" alt="EVA logo" width="56" height="56">
+  <div class="report__titles">
+    <p class="eyebrow">{{.Eyebrow}}</p>
+    <h1>{{.Title}}</h1>
+    <p class="report__sub">{{.Sub}}</p>
+  </div>
+</header>
+{{end}}
+
+{{/* ===================== Post-EVA mission report ===================== */}}
+{{define "mission"}}{{template "head" (printf "Mission report %s" .Mission.ID)}}
+{{template "brand" (dict3 "POST-EVA REPORT" .Mission.Name (printf "%s · %s · %s" .Mission.Environment .Mission.Site .Mission.Status))}}
+{{if .Live}}<p class="note" data-level="1">This EVA is still active: figures are live and will be final when it ends.</p>{{end}}
+<section class="grid4">
+  <div class="stat"><p class="eyebrow">Started</p><p class="stat__v">{{whenp .Mission.StartedAt}}</p></div>
+  <div class="stat"><p class="eyebrow">Ended</p><p class="stat__v">{{whenp .Mission.EndedAt}}</p></div>
+  <div class="stat"><p class="eyebrow">Duration</p><p class="stat__v mono">{{dur .DurationS}}</p></div>
+  <div class="stat"><p class="eyebrow">Alerts · incidents</p><p class="stat__v mono">{{len .Alerts}} · {{len .Incidents}}</p></div>
+</section>
+
+<h2>Crew ranked by physiological load</h2>
+<p class="hint">TRIMP = Banister training impulse (heart-rate reserve). Energy = Keytel heart-rate equation. Dose integrated from the suit dosimeter (mSv/h). Career limit 600 mSv.</p>
+<table class="tbl">
+  <thead><tr><th>Astronaut</th><th class="r">Peak IPV</th><th class="r">Time at risk</th><th class="r">HR mean / max</th><th class="r">SpO₂ min</th><th class="r">Temp max</th><th class="r">TRIMP</th><th class="r">Energy</th><th class="r">Dose</th><th class="r">Career</th><th class="r">Recovery</th></tr></thead>
+  <tbody>
+  {{range .Crew}}
+    <tr data-level="{{ipvLevel .S.PeakIPV}}">
+      <td><b>{{.Crew.Role}} · {{.Crew.Name}}</b><br><span class="muted">{{.Crew.ID}} · {{.S.Samples}} readings</span></td>
+      <td class="r mono lvl">{{.S.PeakIPV}}</td>
+      <td class="r mono">{{dur .S.RiskS}}</td>
+      <td class="r mono">{{f0 .S.HRMean}} / {{f0 .S.HRMax}} bpm</td>
+      <td class="r mono">{{f0 .S.SpO2Min}} %</td>
+      <td class="r mono">{{f1 .S.TempMax}} °C</td>
+      <td class="r mono">{{f1 .S.TRIMP}}</td>
+      <td class="r mono">{{f0 .S.Kcal}} kcal</td>
+      <td class="r mono">{{f3 .S.DoseMSv}} mSv</td>
+      <td class="r mono">{{f1 .CareerPct}} %</td>
+      <td class="r mono">{{f1 .S.RecoveryH}} h</td>
+    </tr>
+  {{else}}<tr><td colspan="11" class="muted">No telemetry recorded for this EVA.</td></tr>{{end}}
+  </tbody>
+</table>
+<p class="hint">Recovery estimate (feeds the next day's vulnerability): 8 h + TRIMP/12, +3 h if the IPV reached RISK, +6 h if it reached EMERGENCY (8–36 h).</p>
+
+<h2>Black box · incidents</h2>
+<table class="tbl">
+  <thead><tr><th>#</th><th>Astronaut</th><th>Trigger</th><th>Event</th><th>Classification</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {{range .Incidents}}
+    <tr><td class="mono">{{.ID}}</td><td>{{.CrewID}}</td><td>{{human .Trigger}}</td><td class="mono">{{when .EventT}}</td>
+      <td>{{if .Classification}}{{human .Classification}}{{else}}—{{end}}</td><td>{{human .Status}}</td>
+      <td><a href="/reports/incident/{{.ID}}">Open report →</a></td></tr>
+  {{else}}<tr><td colspan="7" class="muted">No incidents during this EVA.</td></tr>{{end}}
+  </tbody>
+</table>
+
+<h2>Alert history</h2>
+<table class="tbl">
+  <thead><tr><th>Time</th><th>Astronaut</th><th>Level</th><th>Condition</th><th>Response</th><th class="r">Response time</th><th>Escalated</th></tr></thead>
+  <tbody>
+  {{range .Alerts}}
+    <tr data-level="{{alertLevel .}}"><td class="mono">{{clock .T}}</td><td>{{.CrewID}}</td><td class="lvl">{{human .Level}}</td>
+      <td>{{.Reason}}</td><td>{{human .Response}}{{if .RespondedBy}} ({{.RespondedBy}}){{end}}</td>
+      <td class="r mono">{{if .ResponseS}}{{f1 .ResponseS}} s{{else}}—{{end}}</td><td>{{if .Escalated}}yes{{else}}no{{end}}</td></tr>
+  {{else}}<tr><td colspan="7" class="muted">No alerts.</td></tr>{{end}}
+  </tbody>
+</table>
+
+<h2>Operator log</h2>
+<ul class="log">
+  {{range .OpLog}}<li><span class="mono">{{clock .T}}</span><span class="log__who">{{.Actor}}</span><span>{{.Detail}}</span></li>
+  {{else}}<li class="muted">No actions recorded.</li>{{end}}
+</ul>
+{{template "foot"}}{{end}}
+
+{{/* ===================== Incident (black box) report ===================== */}}
+{{define "incident"}}{{template "head" (printf "Incident #%d" .Incident.ID)}}
+{{template "brand" (dict3 "BLACK BOX · INCIDENT REPORT" (printf "Incident #%d · %s %s" .Incident.ID .Crew.Role .Crew.Name) (printf "%s · trigger: %s" (when .Incident.EventT) (human .Incident.Trigger)))}}
+{{if .Provisional}}<p class="note" data-level="1">Still recording: the post-event window (T+15 min) is not complete. This is a provisional view; seal the incident from the station to freeze it.</p>
+{{else if .HashOK}}<p class="note" data-level="0">Integrity verified · SHA-256 <span class="mono">{{.Incident.SHA256}}</span></p>
+{{else}}<p class="note" data-level="3">Integrity check FAILED: the frozen data does not match its SHA-256 seal.</p>{{end}}
+
+<section class="grid4">
+  <div class="stat" data-level="{{statusLevel .Incident.Classification}}"><p class="eyebrow">Classification</p><p class="stat__v lvl">{{if .Incident.Classification}}{{human .Incident.Classification}}{{else}}pending{{end}}</p></div>
+  <div class="stat"><p class="eyebrow">First deviation</p><p class="stat__v mono">{{clockp .Incident.FirstDeviation}}</p></div>
+  <div class="stat"><p class="eyebrow">Detection latency</p><p class="stat__v mono">{{if .Incident.DetectionS}}{{f0 .Incident.DetectionS}} s{{else}}—{{end}}</p></div>
+  <div class="stat"><p class="eyebrow">Crew response time</p><p class="stat__v mono">{{if .Incident.ResponseS}}{{f1 .Incident.ResponseS}} s{{else}}—{{end}}</p></div>
+</section>
+<p class="hint">Rules: <b>sensor fault</b> = implausible values or abrupt signal loss around the event · <b>progressive</b> = deterioration in the 7 previous days (sleep &lt; 6 h, dehydration, readiness not green) or a build-up of 5 min or more · <b>sudden</b> = no previous deviation.</p>
+
+{{if .Alert}}<h2>Triggering alert</h2>
+<div class="card" data-level="{{alertLevel .Alert}}"><p class="lvl"><b>{{human .Alert.Level}} · {{.Alert.Code}}</b></p><p>{{.Alert.Reason}}</p>
+<p class="muted">Voice script: “{{.Alert.Voice}}”</p>
+<ol class="steps">{{range .Alert.Protocol}}<li>{{.}}</li>{{end}}</ol></div>{{end}}
+
+<h2>Frozen window · T−30 min … T+15 min ({{.Incident.SamplesCount}} readings)</h2>
+{{chart "Heart rate" "bpm" .Series.T .Series.HR .Incident.EventT 50.0 115.0}}
+{{chart "Oxygen saturation" "%" .Series.T .Series.SpO2 .Incident.EventT 94.0 100.0}}
+{{chart "Core temperature" "°C" .Series.T .Series.Temp .Incident.EventT 36.0 37.6}}
+{{chart "Respiratory rate" "rpm" .Series.T .Series.RR .Incident.EventT 10.0 24.0}}
+
+<h2>Timeline</h2>
+<table class="tbl">
+  <thead><tr><th>Time</th><th>Event</th><th>Detail</th></tr></thead>
+  <tbody>{{range .Timeline}}<tr data-level="{{.Level}}"><td class="mono">{{clock .T}}</td><td class="lvl">{{human .Kind}}</td><td>{{.Text}}</td></tr>{{end}}</tbody>
+</table>
+
+<h2>Context · 7 days before the event</h2>
+<p class="hint">Privacy-filtered daily verdicts sent by the phone. The private diary never leaves the device.</p>
+<table class="tbl">
+  <thead><tr><th>Day</th><th>Readiness</th><th class="r">Vulnerability</th><th class="r">Sleep</th><th class="r">Hydration</th><th>Fatigue</th><th>Summary</th></tr></thead>
+  <tbody>{{range .Context}}<tr data-level="{{statusLevel .Status}}"><td class="mono">{{.Day}}</td><td class="lvl">{{human .Status}}</td><td class="r mono">{{.Vulnerability}}</td>
+    <td class="r mono">{{f1 .SleepH}} h</td><td class="r mono">{{f0 .Hydration}}/8</td><td>{{if .FatigueHigh}}high{{else}}—{{end}}</td><td>{{.Summary}}</td></tr>
+  {{else}}<tr><td colspan="7" class="muted">No readiness records.</td></tr>{{end}}</tbody>
+</table>
+<p class="hint">Ready to be sent to the flight surgeon on Earth at the next communication window. Baseline: resting HR {{f0 .Baseline.HRRest}} bpm, SpO₂ {{f0 .Baseline.SpO2}} %, temperature {{f1 .Baseline.Temp}} °C.</p>
+{{template "foot"}}{{end}}
+
+{{/* ===================== Monthly health report ===================== */}}
+{{define "monthly"}}{{template "head" (printf "Monthly health %s %s" .Crew.ID .Month)}}
+{{template "brand" (dict3 "MONTHLY HEALTH REPORT" (printf "%s · %s" .Crew.ID .Crew.Name) (printf "%s · %s, %d years · %s" .Month (sexWord .Crew.Sex) .Crew.Age .Crew.Specialty))}}
+<nav class="months no-print">{{range .Months}}<a href="?month={{.}}">{{.}}</a>{{end}}</nav>
+
+<h2>Automatic findings</h2>
+{{range .Flags}}<p class="flag" data-level="{{.Level}}"><b>{{.Label}}</b> · {{.Detail}}</p>
+{{else}}<p class="flag" data-level="0"><b>No findings</b> · all monthly indicators within limits.</p>{{end}}
+
+<h2>30-day biometric trends vs baseline</h2>
+<table class="tbl">
+  <thead><tr><th>Indicator</th><th class="r">This month</th><th class="r">Previous month</th><th class="r">Baseline</th></tr></thead>
+  <tbody>
+  {{with .Cur}}
+    <tr><td>Resting heart rate</td><td class="r mono">{{f1 .AvgHR}} bpm</td><td class="r mono">{{if $.Prev}}{{f1 $.Prev.AvgHR}} bpm{{else}}—{{end}}</td><td class="r mono">{{f0 $.Baseline.HRRest}} bpm</td></tr>
+    <tr><td>SpO₂</td><td class="r mono">{{f1 .AvgSpO2}} %</td><td class="r mono">{{if $.Prev}}{{f1 $.Prev.AvgSpO2}} %{{else}}—{{end}}</td><td class="r mono">{{f0 $.Baseline.SpO2}} %</td></tr>
+    <tr><td>HRV (RMSSD)</td><td class="r mono">{{f0 .AvgHRV}} ms</td><td class="r mono">{{if $.Prev}}{{f0 $.Prev.AvgHRV}} ms{{else}}—{{end}}</td><td class="r mono">{{f0 $.Baseline.HRV}} ms</td></tr>
+    <tr><td>Sleep</td><td class="r mono">{{if $.SleepAvg}}{{f1 $.SleepAvg}}{{else}}{{f1 .AvgSleepH}}{{end}} h</td><td class="r mono">{{if $.Prev}}{{f1 $.Prev.AvgSleepH}} h{{else}}—{{end}}</td><td class="r mono">{{f1 $.Baseline.SleepH}} h</td></tr>
+    <tr><td>Resistance exercise compliance</td><td class="r mono">{{f0 .ExercisePct}} %</td><td class="r mono">{{if $.Prev}}{{f0 $.Prev.ExercisePct}} %{{else}}—{{end}}</td><td class="r mono">≥ 80 %</td></tr>
+  {{else}}<tr><td colspan="4" class="muted">No monthly panel recorded for {{.Month}}.</td></tr>{{end}}
+  </tbody>
+</table>
+
+{{with .Cur}}
+<h2>Periodic clinical panel</h2>
+<table class="tbl">
+  <thead><tr><th>Test</th><th class="r">Result</th><th>Reference</th></tr></thead>
+  <tbody>
+    <tr><td>Hemoglobin</td><td class="r mono">{{f1 .Hemoglobin}} g/dL</td><td>≥ 12.0 women · ≥ 13.5 men</td></tr>
+    <tr><td>White blood cells</td><td class="r mono">{{f0 .WBC}} /µL</td><td>4 000 – 11 000</td></tr>
+    <tr><td>Platelets</td><td class="r mono">{{f0 .Platelets}} /µL</td><td>150 000 – 450 000</td></tr>
+    <tr><td>Fasting glucose</td><td class="r mono">{{f0 .Glucose}} mg/dL</td><td>&lt; 100</td></tr>
+    <tr><td>Orthostatic systolic drop</td><td class="r mono">{{f0 .OrthostaticDrop}} mmHg</td><td>&lt; 20</td></tr>
+    <tr><td>Body weight · 30-day change</td><td class="r mono">{{f1 .WeightKg}} kg · {{f1 .WeightChangePct}} %</td><td>loss &lt; 5 %</td></tr>
+    <tr><td>Radiation this month</td><td class="r mono">{{f1 .RadiationMonthMS}} mSv</td><td>career {{f1 $.CareerPct}} % of 600 mSv</td></tr>
+  </tbody>
+</table>
+{{end}}
+
+<h2>EVAs this month</h2>
+<table class="tbl">
+  <thead><tr><th>EVA</th><th class="r">Duration</th><th class="r">TRIMP</th><th class="r">Energy</th><th class="r">Dose</th><th class="r">Peak IPV</th><th class="r">Recovery</th></tr></thead>
+  <tbody>{{range .EVAs}}<tr data-level="{{ipvLevel .PeakIPV}}"><td>{{.MissionID}}</td><td class="r mono">{{dur .DurationS}}</td><td class="r mono">{{f1 .TRIMP}}</td><td class="r mono">{{f0 .Kcal}} kcal</td>
+    <td class="r mono">{{f3 .DoseMSv}} mSv</td><td class="r mono lvl">{{.PeakIPV}}</td><td class="r mono">{{f1 .RecoveryH}} h</td></tr>
+  {{else}}<tr><td colspan="7" class="muted">No EVAs this month.</td></tr>{{end}}</tbody>
+</table>
+{{template "foot"}}{{end}}

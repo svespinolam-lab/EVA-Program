@@ -1,0 +1,208 @@
+/* EVA · Diagnosis for the selected crew member. Uses theme tokens and .dx-. Risk color comes from data-level via --lvl and --lvl-soft. */
+
+/* 1 · Summary card */
+.dx-hero { display: grid; gap: var(--sp-4); }
+.dx-hero__top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-3); min-width: 0;
+}
+.dx-hero__who {
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text-2);
+}
+.dx-updated {
+  flex: none;
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3); white-space: nowrap;
+}
+.dx-hero__main { display: flex; align-items: center; gap: var(--sp-4); min-width: 0; }
+.dx-hero .ring { width: 116px; height: 116px; }
+.dx-hero .ring__num { font-size: var(--fs-3xl); }
+.dx-hero__text { flex: 1; min-width: 0; display: grid; gap: var(--sp-2); justify-items: start; }
+.dx-hero__label {
+  font-size: var(--fs-xl); font-weight: 700; line-height: var(--lh-tight);
+  color: var(--lvl, var(--text));
+}
+.dx-hero__summary { font-size: var(--fs-sm); line-height: var(--lh-snug); color: var(--text-2); }
+
+/* Narrow phones: gauge above text */
+@media (max-width: 340px) {
+  .dx-hero__main { flex-direction: column; align-items: flex-start; }
+}
+
+/* Findings heading */
+.dx-sub { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.dx-count {
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums; color: var(--text-3);
+}
+
+/* Findings list uses .finding from controls.css */
+.dx-findings { display: grid; }
+.dx-finding__meta {
+  margin-top: 2px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3);
+}
+.dx-finding__meta b { font-weight: 500; color: var(--lvl); }
+.dx-findings .finding__value { font-variant-numeric: tabular-nums; padding-top: 1px; }
+
+/* All in range or no data */
+.dx-allclear {
+  display: flex; align-items: flex-start; gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--lvl-soft);
+}
+.dx-allclear .finding__icon { background: var(--surface); }
+.dx-allclear .btn { justify-self: start; margin-top: var(--sp-1); margin-left: -10px; }
+
+/* 2 · Mental health */
+.dx-result { display: grid; gap: var(--sp-3); }
+.dx-result__head {
+  display: flex; align-items: flex-start; gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--lvl-soft);
+}
+.dx-result__icon {
+  width: 36px; height: 36px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--lvl);
+}
+.dx-result__icon .icon { width: 18px; height: 18px; }
+.dx-result__copy { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.dx-result__label { font-family: var(--font-display); font-weight: 600; color: var(--lvl); }
+.dx-result__text { font-size: var(--fs-sm); color: var(--text); }
+.dx-result__advice { font-size: var(--fs-sm); color: var(--text-2); }
+
+.dx-mental-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin: 0;
+}
+.dx-mental-grid > div {
+  min-width: 0;
+  display: grid; align-content: start; gap: 6px;
+  padding: var(--sp-3) var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: var(--stroke) solid transparent;
+}
+.dx-mental-grid > div[data-level] { border-color: var(--lvl); background: var(--lvl-soft); }
+.dx-mental-grid dt {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: var(--tracking-label); text-transform: uppercase;
+  color: var(--text-3);
+}
+.dx-mental-grid dd {
+  margin: 0;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  font-weight: 600; font-size: var(--fs-sm); line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.dx-mental-grid dd .icon { width: 18px; height: 18px; color: var(--text-2); }
+.dx-mental-grid > div[data-level] dd .icon { color: var(--lvl); }
+
+.dx-foot {
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums; color: var(--text-3);
+}
+
+/* 3 and 4 · Physical health and suit */
+.dx-group-result { margin-bottom: var(--sp-3); }
+.dx-group-result .status-line {
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--lvl-soft);
+  line-height: var(--lh-snug);
+}
+.dx-group-result .status-line .icon { flex: none; }
+
+.dx-table-wrap { overflow-x: auto; }
+.dx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.dx-table th, .dx-table td {
+  padding: 11px 6px;
+  border-top: var(--stroke) solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.dx-table th:first-child, .dx-table td:first-child { padding-left: 0; text-align: left; }
+.dx-table th:last-child, .dx-table td:last-child { padding-right: 0; }
+.dx-table thead th {
+  padding-top: 0;
+  border-top: 0;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: var(--tracking-label); text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.dx-metric { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: var(--fs-sm); color: var(--text); }
+.dx-metric__icon { display: grid; place-items: center; color: var(--lvl, var(--text-3)); }
+.dx-metric__icon .icon { width: 16px; height: 16px; }
+.dx-metric abbr { text-decoration: none; cursor: help; }
+
+.dx-val { font-family: var(--font-mono); font-size: var(--fs-md); color: var(--text); }
+.dx-table tr[data-level="1"] .dx-val,
+.dx-table tr[data-level="2"] .dx-val,
+.dx-table tr[data-level="3"] .dx-val { color: var(--lvl); font-weight: 500; }
+.dx-val small { margin-left: 3px; font-size: 11px; font-weight: 400; color: var(--text-3); }
+.dx-missing { font-family: var(--font-body); font-size: var(--fs-xs); font-weight: 600; color: var(--text-3); }
+.dx-base, .dx-diff, .dx-range { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-2); }
+.dx-table tr[data-level="2"] .dx-diff,
+.dx-table tr[data-level="3"] .dx-diff { color: var(--lvl); }
+
+/* 5 · Blackbox */
+.dx-tl-level {
+  margin-right: 6px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.06em; color: var(--lvl, var(--text-3));
+}
+
+/* IV crew member inside the spacecraft */
+.dx-note { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.dx-note > .icon { width: 22px; height: 22px; margin-top: 2px; color: var(--accent); }
+.dx-note__copy { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.dx-note__title { font-family: var(--font-display); font-weight: 600; }
+.dx-note__text { font-size: var(--fs-sm); color: var(--text-2); }
+
+
+/* Complete daily physical-health panel */
+.dx-physical-notice { margin-bottom: var(--sp-3); background: var(--surface-2); }
+.dx-physical-notice p { margin: 6px 0 0; color: var(--text-2); font-size: var(--fs-sm); line-height: 1.5; }
+.dx-physical-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: var(--sp-3); }
+.dx-physical-grid > .card { min-width: 0; padding: var(--sp-3); }
+.dx-physical-value { margin: 10px 0 4px; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.dx-physical-grid details { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 9px; color: var(--text-2); font-size: var(--fs-sm); }
+.dx-physical-grid details summary { cursor: pointer; color: var(--text); font-weight: 600; }
+.dx-physical-grid details p { line-height: 1.5; }
+.dx-physical-grid .field { display: block; margin-top: 10px; }
+.dx-physical-grid .input { width: 100%; }
+@media (min-width: 700px) { .dx-physical-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+
+.dx-bp-inputs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-2); }
+.dx-physical-notice .btn { margin-top:10px; }
+/* Dated history of each physical parameter (App.measurements) */
+.dx-hist { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-sm); color: var(--text-2); margin: 2px 0 6px; }
+.dx-light { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.dx-light::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); }
+.dx-light[data-light="green"]::before { background: var(--ok); }
+.dx-light[data-light="yellow"]::before { background: var(--caution); }
+.dx-light[data-light="red"]::before { background: var(--critical); }
+.dx-src { padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-strong); font-size: var(--fs-xs); }
+.dx-src[data-src="demo"] { border-style: dashed; color: var(--caution); border-color: var(--caution); }
+.dx-src[data-src="device"] { color: var(--ok); border-color: var(--ok); }
+.dx-7d { width: 72px; height: 20px; fill: var(--accent); }
+.dx-physical-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.dx-labs-title { margin-top: var(--sp-4); }

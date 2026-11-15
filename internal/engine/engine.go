@@ -235,7 +235,13 @@ func (e *Engine) loadReadiness(cs *crewState) {
    ===================================================================== */
 
 // Ingest processes one live reading from a phone ("device") or a virtual suit.
+func sampleSource(s model.Sample, fallback string) string {
+	switch s.Source { case "device", "virtual", "replay": return s.Source }
+	return fallback
+}
+
 func (e *Engine) Ingest(s model.Sample, source string) {
+	source = sampleSource(s, source)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	cs := e.cs[s.CrewID]
@@ -254,7 +260,7 @@ func (e *Engine) Ingest(s model.Sample, source string) {
 		e.backfill(cs, s, source) // old reading from the offline queue
 		return
 	}
-	e.ingestLive(cs, s, source, now)
+	e.ingestLive(cs, s, sourceForSample, now)
 }
 
 // IngestBatch processes a store-and-forward batch (oldest first).
@@ -270,6 +276,7 @@ func (e *Engine) IngestBatch(crewID string, items []model.Sample, source string)
 	stored, worst := 0, 0
 	var firstEmergency int64
 	for _, s := range items {
+		sourceForSample := sampleSource(s, source)
 		s.CrewID = crewID
 		if s.T <= 0 || s.T > now+5000 {
 			continue
@@ -277,7 +284,7 @@ func (e *Engine) IngestBatch(crewID string, items []model.Sample, source string)
 		if now-s.T <= 15000 && (cs.latest == nil || s.T > cs.latest.T) {
 			e.ingestLive(cs, s, source, now)
 		} else {
-			lvl := e.backfill(cs, s, source)
+			lvl := e.backfill(cs, s, sourceForSample)
 			if lvl > worst {
 				worst = lvl
 			}

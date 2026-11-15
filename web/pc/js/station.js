@@ -366,6 +366,8 @@
       case 'oplog':
         st.oplog.unshift(msg.entry); if (st.oplog.length > 200) st.oplog.pop();
         S.refreshView('oplog'); return;
+      case 'devices':
+        if (S.loadDevices) S.loadDevices(); return;
       case 'mission':
         st.mission = msg.mission;
         var k = st.missions.findIndex(function (x) { return x.id === msg.mission.id; });

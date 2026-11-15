@@ -26,3 +26,8 @@
 .station-abort p { margin-block: 24px; }
 .station-abort .btn { min-height: 64px; width: 100%; }
 .reg-effort { display: inline-block; margin-bottom: 8px; padding: 4px 10px; border-radius: 20px; background: var(--surface-2); color: var(--text-2); font-size: 0.8rem; }
+/* Pairing with EVA Station (code from the console) */
+.station-pair { display: grid; gap: 8px; }
+.station-pair__row { display: flex; gap: 8px; }
+.station-pair__row input { flex: 1; min-width: 0; font-family: var(--font-mono); letter-spacing: 0.2em; font-size: 1.1rem; }
+.station-chip[data-state="unpaired"] { color: var(--caution); border-color: var(--caution); }

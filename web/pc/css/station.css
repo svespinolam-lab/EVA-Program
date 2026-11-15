@@ -261,3 +261,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .bb-table { table-layout: fixed; }
 .bb-table th:nth-child(5), .bb-table td:nth-child(5) { width: 30%; }
 .bb-table th:nth-child(6), .bb-table td:nth-child(6) { width: 150px; }
+/* Phone pairing (Simulator → Pair a phone) */
+.pair-list { display: grid; gap: 6px; }
+.pair-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: var(--r-md); background: var(--surface-2); flex-wrap: wrap; }
+.pair-code { font-size: 44px; letter-spacing: 0.18em; text-align: center; color: var(--accent); margin: 8px 0 4px; font-variant-numeric: tabular-nums; }

@@ -533,7 +533,8 @@
     var urls = (S.state.info && S.state.info.urls) || [];
     return '<div class="card stack"><h2 class="section__title">Connect a phone</h2><p class="muted">On the same Wi-Fi as this PC, open:</p><div class="urls">' +
       (urls.length ? urls.map(function (u) { return '<span class="url">' + esc(u) + '/app/</span>'; }).join('') : '<span class="url">http://&lt;PC-IP&gt;/app/</span>') +
-      '</div><p class="subtle">When a phone is linked, failures are injected on the phone itself (edge processing, voice alert, local black box) and reach the station like real data.</p></div>' +
+      '</div><p class="subtle">When a phone is linked, failures are injected on the phone itself (edge processing, voice alert, local black box) and reach the station like real data.</p>' +
+      pairHTML() + '</div>' +
       evaCrew().map(function (c) {
         var on = !!sim.virtual[c.id], phone = c.device && c.device.online, act = sim.active[c.id] || [];
         return '<section class="card stack"><div class="row-between"><div class="row">' + S.avatar(c, lvlOf(c)) + '<div><b class="tcard__name">' + esc(c.role + ' · ' + c.name) + '</b><br>' + deviceChip(c) + '</div></div>' +
@@ -544,8 +545,54 @@
           '<div class="st-actions"><button type="button" class="btn btn--secondary btn--sm" data-clear="' + esc(c.id) + '">' + icon('refresh') + 'Restore normal values</button></div></section>';
       }).join('');
   }
+  /* Phone pairing: a one-time 6-digit code (5 min) binds a phone to a crew
+     member; only paired phones are accepted by the station. */
+  S.devices = S.devices || [];
+  S.loadDevices = function () {
+    return S.api('GET', '/api/devices').then(function (list) {
+      S.devices = Array.isArray(list) ? list : [];
+      var el = document.getElementById('sim-body');
+      if (el && !el.contains(document.activeElement)) el.innerHTML = simHTML();
+    }, function () { /* role without admin rights: list hidden */ });
+  };
+  function pairHTML() {
+    var crew = S.state.crew || [];
+    var active = S.devices.filter(function (d) { return !d.revoked; });
+    return '<h3 class="section__title" style="margin-top:8px">Pair a phone</h3>' +
+      '<p class="muted">Each phone must be paired once: choose who carries it, then type the code in the app (≡ → Station link → Pairing).</p>' +
+      '<div class="st-actions">' + crew.map(function (c) {
+        return '<button type="button" class="btn btn--secondary btn--sm" data-pair="' + esc(c.id) + '">' + icon('link') + 'Pair ' + esc(c.role + ' · ' + c.name) + '</button>';
+      }).join('') + '</div>' +
+      (active.length ? '<div class="pair-list">' + active.map(function (d) {
+        return '<div class="pair-item"><span><b>' + esc(S.who(d.crewId)) + '</b> · ' + esc(d.name) + ' <span class="subtle mono">' + esc(d.id) + '</span>' +
+          (d.lastSeen ? ' <span class="subtle">· seen ' + esc(S.when ? S.when(d.lastSeen) : new Date(d.lastSeen).toLocaleTimeString()) + '</span>' : '') + '</span>' +
+          '<button type="button" class="btn btn--ghost btn--sm" data-revoke="' + esc(d.id) + '">Revoke</button></div>';
+      }).join('') + '</div>' : '<p class="subtle">No phone paired yet.</p>');
+  }
+  function showPairCode(crewId) {
+    S.post('/api/devices/pair', { crewId: crewId }).then(function (j) {
+      S.modal({
+        title: 'Pairing code · ' + S.who(crewId),
+        html: '<p class="pair-code mono" aria-live="polite">' + esc(j.code.slice(0, 3) + ' ' + j.code.slice(3)) + '</p>' +
+          '<p class="muted">On the phone: ≡ → <b>Station link</b> → type this code → <b>Pair</b>.</p>' +
+          '<p class="subtle" id="pair-exp"></p>' +
+          '<div class="st-actions" style="justify-content:flex-end"><button type="button" class="btn btn--primary" data-close-modal>Done</button></div>',
+        onMount: function (b) {
+          var exp = b.querySelector('#pair-exp');
+          var t = setInterval(function () {
+            var s = Math.max(0, Math.round((j.expiresAt - Date.now()) / 1000));
+            exp.textContent = s ? 'Single use · expires in ' + Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2) : 'Expired: create a new code.';
+            if (!s || !document.body.contains(exp)) clearInterval(t);
+          }, 500);
+          b.addEventListener('click', function (e) { if (e.target.closest('[data-close-modal]')) S.closeModal(); });
+        },
+      });
+    });
+  }
+
   S.views.simulator = {
     render: function (root) {
+      S.loadDevices();
       root.innerHTML = '<div class="vwrap"><div class="st-head"><div><p class="eyebrow">Demonstration · no real sensors</p><h1>Simulator</h1>' +
         '<p>Virtual suits give telemetry to explorers without a phone. Inject a failure to show detection, voice alert, escalation and the black box.</p></div>' +
         '<div class="st-actions"><button type="button" class="btn btn--secondary" data-clear="">' + icon('refresh') + 'Restore all</button></div></div><div class="stack" id="sim-body"></div></div>';
@@ -561,6 +608,14 @@
           S.post('/api/sim/inject', { crewId: inj.getAttribute('data-inject'), scenario: inj.getAttribute('data-scenario') }).then(function (j) {
             S.toast('Failure injected on the ' + j.target + ' of ' + S.who(inj.getAttribute('data-inject')), { icon: 'play', level: 2 });
           });
+          return;
+        }
+        var pr = e.target.closest('[data-pair]');
+        if (pr) { showPairCode(pr.getAttribute('data-pair')); return; }
+        var rv = e.target.closest('[data-revoke]');
+        if (rv) {
+          S.confirm({ title: 'Revoke this phone?', message: 'It is disconnected now and must be paired again with a new code.', confirmLabel: 'Revoke', danger: true })
+            .then(function (ok) { if (ok) S.post('/api/devices/' + rv.getAttribute('data-revoke') + '/revoke', {}, 'Phone unpaired').then(S.loadDevices); });
           return;
         }
         var cl = e.target.closest('[data-clear]');

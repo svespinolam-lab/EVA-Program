@@ -14,6 +14,8 @@ EVA es un sistema de monitoreo biomédico para caminatas espaciales (EVA) que fu
 
 > Concepto demostrativo con datos simulados: **no es un dispositivo médico**.
 
+> 🧭 **Estado del proyecto:** inventario, riesgos y plan por fases en [`docs/AUDITORIA-FASE-1.md`](docs/AUDITORIA-FASE-1.md).
+
 > 📘 **¿Primera vez?** Lee el manual de uso e interpretación en español: [`docs/Manual-EVA-ES.docx`](docs/Manual-EVA-ES.docx). Explica cada pantalla con capturas numeradas, los colores, el Score y el IPV, un guion de demostración y un glosario inglés → español.
 
 ## ⚡ Forma más rápida (sin instalar nada)
@@ -58,6 +60,7 @@ La consola muestra algo así:
 ```
   PC program      http://localhost:8080
   Phones (Wi-Fi)  http://192.168.137.1:8080/app/
+  Operator link   http://192.168.137.1:8080/?operator=3f9c…   (console from another device; keep it private)
 ```
 
 - La primera vez Windows pedirá permiso de **firewall**: permítelo en **redes privadas**.
@@ -72,12 +75,20 @@ Opciones útiles:
 | `-virtual all` / `-virtual none` | Trajes virtuales para todos los exploradores sin teléfono / para ninguno (por defecto: EV2) |
 | `-web web` | Sirve las interfaces desde la carpeta `web` (para editarlas en vivo; se activa solo si ejecutas desde la raíz del proyecto) |
 | `-data otra\carpeta` | Dónde guardar la base de datos |
+| `-operator-token X` | Fija el token del operador (si no, se usa `EVA_OPERATOR_TOKEN` o se crea uno al azar en `data\operator.token`) |
+
+### 🔒 Acceso a la consola (seguridad)
+
+- **En la PC de la estación** la consola se abre sin contraseña: <http://localhost:8080> (o la IP de la propia PC).
+- **Desde otro dispositivo** (otra laptop, tablet o tu celular) la consola, la API, los reportes y las exportaciones están **bloqueados**: contienen el control de la misión y expedientes médicos. Para abrirla, usa una sola vez el **Operator link** que imprime la ventana negra (`/?operator=…`); queda guardado 12 h en ese navegador. No compartas ese enlace.
+- Los teléfonos de los exploradores **no necesitan nada**: `/app/` y el enlace por WebSocket siguen abiertos.
+- Una página web de otro sitio no puede enviar órdenes a la estación (protección CSRF) y los teléfonos ya no reciben los expedientes médicos de los demás tripulantes.
 
 ## 5. Enlazar el teléfono
 
 1. En el teléfono abre la dirección **Phones (Wi-Fi)** que mostró la consola (por ejemplo `http://192.168.137.1:8080/app/`). También aparece en la PC con el botón de señal (arriba a la derecha) o en **Simulator**.
 2. En la app: **≡ Settings → Station link** → elige quién lleva el teléfono (**Ana Ruiz · EV1**) → activa **Link**.
-3. En la PC, el triage mostrará **Phone linked** para EV1. El traje virtual de esa persona se apaga solo: desde ese momento los datos vienen del teléfono.
+3. En la PC, el triage mostrará **Phone linked · simulated data** para EV1 (o **· sensors** si las lecturas vienen de sensores reales). El traje virtual de esa persona se apaga solo: desde ese momento los datos vienen del teléfono.
 4. Toca el ícono de bocina en la app para activar la voz (el navegador lo exige).
 
 ## 6. Guion de la simulación (demo)

@@ -11,6 +11,8 @@ EVA supports a crew during extravehicular activities on the Moon or Mars **witho
             └── acks ⇄ alerts, instructions  └─ data/eva-station.db
 ```
 
+> Project status, risks and the phased completion plan (Spanish): [`docs/AUDITORIA-FASE-1.md`](docs/AUDITORIA-FASE-1.md).
+
 ## Quick start
 
 **Easiest (no install, Windows):** Code → Download ZIP → unzip → double-click **`EVA-Station.bat`** (uses the ready-made `dist/eva-station.exe`).
@@ -70,5 +72,7 @@ Precision measures: personal baseline (Welford mean ± SD, 14-day adaptation the
 The private diary (mood, notes, cycle) never leaves the phone: only the readiness verdict, a vulnerability index and factor codes.
 
 ## HTTP API (station)
+
+**Access control.** Phones only use `/app/`, `/shared/`, `/ws/device` and the public probe `GET /api/health`. Everything else (the console `/`, `/ws/console`, `/api/…`, `/reports/…`) is operator-only: allowed from the station PC itself, or from another device with the operator token (`/?operator=TOKEN` once → HttpOnly cookie, or `Authorization: Bearer TOKEN`). The token comes from `-operator-token`, `EVA_OPERATOR_TOKEN` or `data/operator.token` (random, created on first start) and is printed in the station window. State-changing requests and the console WebSocket must be same-origin (CSRF guard); request bodies are capped at 1 MiB; no wildcard CORS.
 
 `GET /api/state` · `GET /api/info` · `GET /api/health/database` (SQLite integrity + row counts) · `POST /api/mission/{start|end|abort|new}` · `POST /api/alerts/{id}/ack` · `POST /api/instruction` · `POST /api/crew/{id}/incident` · `POST /api/incidents/{id}/seal` · `GET|POST /api/sim…` · `GET /api/blackbox[/verify]` · `GET /api/export/{table}` (CSV) · `GET /reports/{mission|incident|monthly}/{id}` (print → PDF).

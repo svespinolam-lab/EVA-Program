@@ -318,6 +318,8 @@
       return sim && sim.sensors[key] ? sim.sensors[key] : 'disconnected';
     },
 
+    isHardwareConnected: function(crewId,key) { var sim=sims[crewId]; return !!(sim && Number.isFinite(sim.hardware[key])); },
+
     isConnected: function (crewId, key) {
       if (isRemote(crewId)) return api.status(crewId, key) === 'connected';
       var sim = sims[crewId];

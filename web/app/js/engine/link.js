@@ -254,6 +254,8 @@
       case 'paired':
         App.storage.set('linkDevice', { deviceId: message.deviceId, token: message.token, crewId: message.crewId });
         pairCode = ''; needsPairing = false;
+        // The pairing code decides who carries this phone: adopt that crew member.
+        if (message.crewId && message.crewId !== crewId()) App.store.set({ linkCrewId: message.crewId });
         toast('Phone paired with EVA Station'); log('system', 'Paired with EVA Station as ' + message.deviceId, 0, { deviceId: message.deviceId });
         changed(); break;
       case 'welcome':

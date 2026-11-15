@@ -246,7 +246,10 @@ func (s *Server) authenticateDevice(conn *ws.Conn, h envelope, name, ip string) 
 		}
 		return d, nil, true
 	case strings.TrimSpace(h.PairCode) != "":
-		p, ok := s.pairing.take(strings.TrimSpace(h.PairCode), h.CrewID)
+		// The code was issued by an operator for one crew member: it decides
+		// who this phone is (the phone's own selection is only a guess and
+		// the phone adopts the crew sent back in "paired").
+		p, ok := s.pairing.take(strings.TrimSpace(h.PairCode), "")
 		if !ok {
 			return fail("pairing_failed", "Wrong or expired pairing code.")
 		}

@@ -130,6 +130,15 @@ func TestPhonePairingLifecycle(t *testing.T) {
 	}
 	ph.next(t, "welcome", 5*time.Second)
 
+	// The code decides the crew member even if the phone had another one selected.
+	var pc2 struct{ Code string }
+	decode(t, call(h, "POST", "/api/devices/pair", local, nil, `{"crewId":"AST-002"}`), &pc2)
+	luis := dialWS(t, ts.URL, "/ws/device")
+	luis.send(t, map[string]any{"type": "hello", "crewId": "AST-001", "device": "Luis phone", "pairCode": pc2.Code})
+	if m := luis.next(t, "paired", 5*time.Second); m["crewId"] != "AST-002" {
+		t.Fatalf("code for AST-002 paired as %v", m["crewId"])
+	}
+
 	// The code is single use.
 	other := dialWS(t, ts.URL, "/ws/device")
 	other.send(t, map[string]any{"type": "hello", "crewId": "AST-001", "pairCode": pc.Code})

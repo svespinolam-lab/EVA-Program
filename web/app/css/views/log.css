@@ -1,8 +1,24 @@
 /* EVA · Log view (.reg-). Shared cards, sensors, tiles, and buttons use controls.css; colors use tokens.css. */
 
 /* Mental health */
-.reg-card { display: grid; gap: var(--sp-5); }
+.reg-card { display: grid; gap: var(--sp-3); min-width: 0; }
 .reg-card .group + .group { margin-top: 0; }   /* Spacing comes from gap */
+
+.reg-checkin-time { font-size: var(--fs-sm); color: var(--text-3); overflow-wrap: anywhere; }
+.reg-checkin-status { display: flex; align-items: center; gap: var(--sp-2); color: var(--lvl); font-weight: 600; }
+.reg-checkin-light { width: 12px; height: 12px; flex: none; border-radius: 50%; background: var(--lvl); }
+.reg-wizard { display: grid; gap: var(--sp-4); min-width: 0; overflow-wrap: anywhere; }
+.reg-wizard > * { min-width: 0; }
+.reg-wizard-question { font-size: var(--fs-lg); }
+.reg-wizard .segmented { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
+.reg-wizard .segmented__opt { min-height: 52px; padding: var(--sp-3); text-align: center; }
+.reg-wizard .segmented__opt[aria-checked="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
+.reg-wizard-nav { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3); }
+.reg-wizard .btn, .reg-card .btn { min-height: var(--tap); white-space: normal; }
+.reg-wizard .stepper__btn { flex: 0 0 var(--tap); min-height: var(--tap); }
+.reg-wizard .stepper__value { text-align: center; }
+.reg-wizard-note, .reg-wizard-help { font-size: var(--fs-sm); color: var(--text-2); }
+.reg-support { padding: var(--sp-4); background: var(--surface-2); border-radius: var(--r-md); }
 
 .reg-note {
   display: flex; align-items: flex-start; gap: var(--sp-2);

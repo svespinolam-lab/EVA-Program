@@ -177,9 +177,33 @@
     var since = ck.at || Date.now();
     var shortSleep = typeof ck.sleepMin === 'number' && ck.sleepMin < M.sleep.recommendedMin;
     function add(key, level, label, message, vText) {
+      level = Math.max(0, Math.min(2, level));
       out.push({ key: key, group: 'mental', label: label, short: label, level: level, value: null, valueText: vText,
         direction: null, trend: null, message: message, shortMessage: lowerFirst(message), advice: adviceFor(key, null, level),
         since: since, depth: 0.5 });
+    }
+    if (App.mental && App.mental.evaluate) {
+      var result = App.mental.evaluate(ck);
+      var normalized = App.mental.fromLegacy(ck);
+      result.sections.forEach(function (s, i) {
+        if (!s.level) return;
+        var def = App.mental.SECTIONS[i];
+        add(s.id, s.level, def.title, def.title + ' needs attention', def.options[s.value].label);
+        out[out.length - 1].advice = 'Allow time for support and talk with the crew medical officer if needed.';
+      });
+      if (result.flags.indexOf('SHORT_SLEEP') >= 0) {
+        add('sleep', normalized.sleepMin < 300 ? 2 : 1, M.sleep.label,
+          normalized.sleepMin < 300 ? 'Very short sleep' : 'Insufficient sleep', App.fmt.minutes(normalized.sleepMin));
+      }
+      if (result.flags.indexOf('POOR_SLEEP') >= 0) add('sleepQuality', 1, 'Sleep quality', 'Poor sleep quality', 'Poor');
+      if (result.level === 2 && !out.some(function (f) { return f.level === 2; })) {
+        add('mental', 2, 'Daily check-in', 'Several check-in concerns', '');
+        out[out.length - 1].advice = 'Talk with the crew medical officer and allow time for rest and support.';
+      }
+      out.forEach(function (f) {
+        if (f.key === 'sleepQuality') f.advice = adviceFor('sleep', null, f.level);
+      });
+      return out;
     }
     if (ck.mood === 0) add('mood', 1, M.mood.label, 'Low mood', M.mood.options[0]);
     if (ck.energy === 0) add('energy', 1, M.energy.label, 'Low energy', M.energy.options[0]);

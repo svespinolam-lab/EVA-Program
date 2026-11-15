@@ -1,4 +1,4 @@
-/* EVA · Log for the selected crew member: mental check-in (mood, energy, sleep); live HR, SpO₂, temperature, and on-demand blood pressure; suit pressure, oxygen, CO₂, and battery. IV crew see only mental health. Styles: css/views/log.css (.reg-). */
+/* EVA · Log: private daily check-in wizard, biomedical sensors and suit telemetry. Styles: css/views/log.css (.reg-). */
 (function () {
   'use strict';
   var App = window.App = window.App || {};
@@ -11,7 +11,7 @@
 
   var root = null;      // Main element containing the view
   var crewId = null;    // Displayed crew member
-  var draft = null;     // Unsaved mental check-in: {mood, energy, sleepMin}
+  var wizard = null;    // Unsaved check-in and sheet owned by this view
   var pending = {};     // Connections or measurements started from this view
   var lastBpAt = null;  // Timestamp of the last rendered blood pressure reading
   var agoTimer = null;
@@ -102,10 +102,10 @@
   }
   function mentalHint() {
     var c = lastCheckin();
-    return c && c.at ? 'Last check-in: ' + App.fmt.ago(c.at) : 'No check-in yet';
+    return c && c.at ? (c.example ? 'Sample: ' : 'Last check-in: ') + App.fmt.date(c.at) + ' ' + hhmm(c.at) + ' · ' + App.fmt.ago(c.at) : 'No check-in yet';
   }
   function recommendedText() {
-    var rec = C.mental.sleep.recommendedMin;
+    var rec = App.mental.SLEEP.hours.recommendedMin;
     return rec % 60 ? App.fmt.minutes(rec) : (rec / 60) + ' h';
   }
   function sleepValueHTML(min) {
@@ -113,86 +113,174 @@
     return h + '<small> h </small>' + (mm < 10 ? '0' : '') + mm + '<small> min</small>';
   }
   function sleepHintHTML(min) {
-    if (min >= C.mental.sleep.recommendedMin) return '';
+    if (min >= App.mental.SLEEP.hours.recommendedMin) return '';
     return '<p class="reg-hint" data-level="1">' + App.icon('info') +
       '<span>Less than the recommended ' + esc(recommendedText()) + '. Fatigue is possible.</span></p>';
   }
 
   function mentalCard() {
     var c = lastCheckin();
-    var mm = C.mental;
-    var step = mm.sleep.stepMin;
-    var ready = draft.mood !== null && draft.energy !== null;
+    var result = c ? App.mental.evaluate(c) : null;
+    var label = result ? ['No concerns flagged', 'Caution', 'Needs attention'][result.level] : 'Not recorded';
+    if (result && result.summary.indexOf('Check-in incomplete.') >= 0) label += ' · partial check-in';
     return '<div class="card reg-card" id="reg-mental-card">' +
+      '<p class="reg-checkin-time" id="reg-checkin-time">' + esc(mentalHint()) + '</p>' +
+      '<p class="reg-checkin-status" data-level="' + (result ? result.level : 'off') + '">' +
+        '<span class="reg-checkin-light" aria-hidden="true"></span><span>' + esc(label) + '</span></p>' +
       (c && c.example
         ? '<p class="reg-note">' + App.icon('info') + '<span>Sample check-in. Save a new one to replace it.</span></p>'
         : '') +
-      '<div class="group"><p class="group__label">' + esc(mm.mood.label) + '</p>' +
-        App.ui.segmented({ name: 'reg-mood', label: mm.mood.label, options: mm.mood.options, icons: mm.mood.icons, value: draft.mood }) +
-      '</div>' +
-      '<div class="group"><p class="group__label">' + esc(mm.energy.label) + '</p>' +
-        App.ui.segmented({ name: 'reg-energy', label: mm.energy.label, options: mm.energy.options, icons: mm.energy.icons, value: draft.energy }) +
-      '</div>' +
-      '<div class="group">' +
-        '<p class="group__label"><span>' + esc(mm.sleep.label) + '</span><span class="subtle">Recommended ' + esc(recommendedText()) + '</span></p>' +
-        '<div class="stepper">' +
-          '<button type="button" class="stepper__btn" id="reg-sleep-minus" data-action="sleep" data-step="-1" aria-label="Subtract ' + step + ' minutes of sleep">' + App.icon('minus') + '</button>' +
-          '<output class="stepper__value" id="reg-sleep-value" aria-live="polite" aria-label="Hours of sleep">' + sleepValueHTML(draft.sleepMin) + '</output>' +
-          '<button type="button" class="stepper__btn" id="reg-sleep-plus" data-action="sleep" data-step="1" aria-label="Add ' + step + ' minutes of sleep">' + App.icon('plus') + '</button>' +
-        '</div>' +
-        '<div id="reg-sleep-hint">' + sleepHintHTML(draft.sleepMin) + '</div>' +
-      '</div>' +
-      '<div class="reg-actions">' +
-        '<button type="button" class="btn btn--primary btn--block" id="reg-save" data-action="save"' +
-          (ready ? '' : ' disabled aria-describedby="reg-save-help"') + '>' + App.icon('check') + 'Save check-in</button>' +
-        (ready ? '' : '<p class="reg-save-help" id="reg-save-help">Choose mood and energy to save.</p>') +
-      '</div>' +
+      '<button type="button" class="btn btn--primary btn--block" id="reg-start-checkin" data-action="start-checkin">Start daily check-in</button>' +
     '</div>';
   }
 
   function mentalSection() {
     return '<section class="section" id="reg-mental-section">' +
-      App.ui.sectionHead({ eyebrow: 'Check-in', title: 'Mental health', hint: mentalHint() }) +
+      App.ui.sectionHead({ eyebrow: 'Check-in', title: 'Mental health' }) +
       mentalCard() + '</section>';
   }
 
-  function selectSeg(btn) {
-    var name = btn.getAttribute('data-seg');
-    draft[name === 'reg-mood' ? 'mood' : 'energy'] = Number(btn.getAttribute('data-value'));
-    App.dom.$$('[data-seg="' + name + '"]', root).forEach(function (b) {
-      b.setAttribute('aria-checked', String(b === btn));
+  function stepValue(w) {
+    return w.step < 8 ? w.draft.answers[App.mental.SECTIONS[w.step].id] :
+      w.step === 8 ? w.draft.sleepQuality : w.draft.safety;
+  }
+  function choices(definition, value) {
+    return App.ui.segmented({ name: 'reg-answer', label: definition.question,
+      options: definition.options.map(function (o) { return o.label; }), value: value });
+  }
+  function wizardHTML(w) {
+    var M = App.mental, d = w.draft;
+    var def = w.step < 8 ? M.SECTIONS[w.step] : w.step === 8 ? M.SLEEP : M.SAFETY;
+    var content = '<p class="reg-wizard-question">' + esc(def.question) + '</p>';
+    if (w.step === 8) {
+      content += '<p class="subtle">Recommended ' + esc(recommendedText()) + '</p>' +
+        '<div class="stepper">' +
+          '<button type="button" class="stepper__btn" data-wizard="sleep-minus" aria-label="Subtract 15 minutes of sleep">' + App.icon('minus') + '</button>' +
+          '<output class="stepper__value" id="reg-sleep-value" aria-live="polite" aria-label="Hours of sleep">' + sleepValueHTML(d.sleepMin) + '</output>' +
+          '<button type="button" class="stepper__btn" data-wizard="sleep-plus" aria-label="Add 15 minutes of sleep">' + App.icon('plus') + '</button>' +
+        '</div><div id="reg-sleep-hint">' + sleepHintHTML(d.sleepMin) + '</div>' +
+        '<p>' + esc(M.SLEEP.quality.question) + '</p>' + choices(M.SLEEP.quality, d.sleepQuality);
+    } else {
+      content += choices(def, stepValue(w));
+    }
+    return '<div class="reg-wizard">' +
+      '<p class="eyebrow" aria-live="polite">' + (w.step + 1) + ' of 10</p>' +
+      '<h3 id="reg-step-title" tabindex="-1" autofocus>' + esc(def.title) + '</h3>' + content +
+      (w.step === 9 ? '<p class="reg-wizard-note">Your answer to this question stays on this phone and is not sent to the station.</p>' : '') +
+      '<p class="reg-wizard-help" id="reg-wizard-help">Choose an answer to continue.</p>' +
+      '<div class="reg-wizard-nav"><button type="button" class="btn btn--secondary" data-wizard="back"' + (w.step ? '' : ' disabled') + '>Back</button>' +
+      '<button type="button" class="btn btn--primary" data-wizard="next">' + (w.step === 9 ? 'Save check-in' : 'Next') + '</button></div></div>';
+  }
+  function syncWizard(w) {
+    var value = stepValue(w), ready = value !== null;
+    App.dom.$$('[data-seg="reg-answer"]', w.body).forEach(function (b, i) {
+      b.setAttribute('aria-checked', String(i === value));
+      b.tabIndex = i === (ready ? value : 0) ? 0 : -1;
     });
-    var save = $('#reg-save');
-    if (save && draft.mood !== null && draft.energy !== null) {
-      save.disabled = false;
-      save.removeAttribute('aria-describedby');
-      var help = $('#reg-save-help');
-      if (help) help.remove();
+    var next = w.body.querySelector('[data-wizard="next"]');
+    next.disabled = !ready;
+    if (ready) next.removeAttribute('aria-describedby');
+    else next.setAttribute('aria-describedby', 'reg-wizard-help');
+    w.body.querySelector('#reg-wizard-help').hidden = ready;
+    if (w.step === 8) {
+      w.body.querySelector('[data-wizard="sleep-minus"]').disabled = w.draft.sleepMin <= 0;
+      w.body.querySelector('[data-wizard="sleep-plus"]').disabled = w.draft.sleepMin >= App.mental.SLEEP.hours.maxMin;
     }
   }
-
-  function stepSleep(dir) {
-    var s = C.mental.sleep;
-    draft.sleepMin = Math.max(0, Math.min(s.maxMin, draft.sleepMin + dir * s.stepMin));
-    var out = $('#reg-sleep-value');
-    if (out) out.innerHTML = sleepValueHTML(draft.sleepMin);
-    var hint = $('#reg-sleep-hint');
-    if (hint) hint.innerHTML = sleepHintHTML(draft.sleepMin);
+  function renderStep(w) {
+    w.body.innerHTML = wizardHTML(w);
+    w.body.scrollTop = 0;
+    syncWizard(w);
+    w.body.querySelector('#reg-step-title').focus();
+  }
+  function chooseAnswer(w, button) {
+    var value = Number(button.getAttribute('data-value'));
+    if (w.step < 8) w.draft.answers[App.mental.SECTIONS[w.step].id] = value;
+    else if (w.step === 8) w.draft.sleepQuality = value;
+    else w.draft.safety = value;
+    syncWizard(w);
+  }
+  function startCheckin() {
+    var d = App.mental.fromLegacy(null);
+    // Each daily check-in starts unanswered, including personal safety.
+    d.sleepMin = App.mental.SLEEP.hours.defaultMin;
+    var w = { crewId: crewId, draft: d, step: 0, body: null };
+    wizard = w;
+    App.ui.sheet.open({ title: 'Daily check-in', html: wizardHTML(w),
+      onMount: function (body) {
+        w.body = body;
+        syncWizard(w);
+        body.addEventListener('click', function (e) {
+          if (wizard !== w || w.crewId !== crewId) return;
+          var b = e.target.closest('button');
+          if (!b || !body.contains(b) || b.disabled) return;
+          if (b.getAttribute('data-seg') === 'reg-answer') { chooseAnswer(w, b); return; }
+          var action = b.getAttribute('data-wizard');
+          if (action === 'back' && w.step > 0) { w.step--; renderStep(w); }
+          else if (action === 'next' && stepValue(w) !== null) {
+            if (w.step === 9) saveCheckin(w);
+            else { w.step++; renderStep(w); }
+          } else if (w.step === 8 && (action === 'sleep-minus' || action === 'sleep-plus')) {
+            var s = App.mental.SLEEP.hours;
+            d.sleepMin = Math.max(0, Math.min(s.maxMin, d.sleepMin + (action === 'sleep-minus' ? -s.stepMin : s.stepMin)));
+            body.querySelector('#reg-sleep-value').innerHTML = sleepValueHTML(d.sleepMin);
+            body.querySelector('#reg-sleep-hint').innerHTML = sleepHintHTML(d.sleepMin);
+            syncWizard(w);
+          }
+        });
+        body.addEventListener('keydown', function (e) {
+          var b = e.target.closest('[data-seg="reg-answer"]');
+          var dir = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+          if (!b || !dir || wizard !== w) return;
+          e.preventDefault();
+          var group = App.dom.$$('[data-seg="reg-answer"]', body);
+          var next = group[(group.indexOf(b) + dir + group.length) % group.length];
+          chooseAnswer(w, next);
+          next.focus();
+        });
+      },
+      onClose: function () { if (wizard === w) wizard = null; }
+    });
   }
 
-  function saveCheckin() {
-    if (draft.mood === null || draft.energy === null) return;
-    var checkin = { mood: draft.mood, energy: draft.energy, sleepMin: draft.sleepMin, at: Date.now() };
+  function showSupport() {
+    App.ui.sheet.open({ title: 'Support is available',
+      html: '<div class="reg-wizard reg-support"><h3 tabindex="-1" autofocus>Take a moment for support</h3>' +
+        '<p>This check-in is not a diagnosis. Talk now to the crew medical officer (IV) or flight surgeon about how you are feeling.</p>' +
+        '<p>Try a short breathing exercise: breathe in for 4 seconds, hold for 4 seconds, then breathe out for 6 seconds.</p>' +
+        '<p>Your answer stays on this phone. It is not sent to the station.</p>' +
+        '<button type="button" class="btn btn--primary btn--block" data-wizard="done">Done</button></div>',
+      onMount: function (body) {
+        body.querySelector('[data-wizard="done"]').addEventListener('click', function () { App.ui.sheet.close(); });
+      }
+    });
+  }
+  function saveCheckin(w) {
+    var d = w.draft;
+    if (wizard !== w || w.crewId !== crewId || d.safety === null || d.sleepQuality === null ||
+        App.mental.SECTIONS.some(function (s) { return d.answers[s.id] === null; })) return;
+    d.at = Date.now();
+    var checkin = App.mental.toLegacy(d);
+    checkin.answers = d.answers;
+    checkin.sleepQuality = d.sleepQuality;
+    checkin.safety = d.safety;
     var all = Object.assign({}, App.store.get('checkins') || {});
-    all[crewId] = checkin;
+    all[w.crewId] = checkin;
     App.store.set({ checkins: all });
-    App.bus.emit('checkin', { crewId: crewId, checkin: checkin });
+    // Preserve link.js's dailyLog/readiness update, exposing only the original fields
+    // on the bus. Risk reads the complete record from the local store.
+    App.bus.emit('checkin', { crewId: w.crewId, checkin: App.mental.toLegacy(checkin) });
+    App.ui.sheet.close();
     App.ui.toast('Check-in saved · ' + hhmm(checkin.at), { icon: 'check' });
     replaceKeepingFocus($('#reg-mental-section'), mentalSection());
+    // The checkin event may have replaced the original sheet opener.
+    var opener = $('#reg-start-checkin');
+    if (opener) opener.focus({ preventScroll: true });
+    if (d.safety !== 0) showSupport();
   }
 
   function refreshAgo() {
-    var hint = $('#reg-mental-section .section__hint');
+    var hint = $('#reg-checkin-time');
     if (hint) hint.textContent = mentalHint();
   }
 
@@ -440,31 +528,15 @@
 
   /* View events delegated to main */
   function onClick(e) {
-    var seg = e.target.closest('[data-seg]');
-    if (seg && root.contains(seg)) { selectSeg(seg); return; }
     var btn = e.target.closest('[data-action]');
     if (!btn || !root.contains(btn) || btn.disabled) return;
     var action = btn.getAttribute('data-action');
-    if (action === 'sleep') stepSleep(Number(btn.getAttribute('data-step')));
-    else if (action === 'save') saveCheckin();
+    if (action === 'start-checkin') startCheckin();
     else if (action === 'connect') connect([btn.getAttribute('data-key')]);
     else if (action === 'connect-all') connectAll();
     else if (action === 'connect-suit') connect(SUIT.filter(isOff));
     else if (action === 'measure-bp') measureBP();
     else if (action === 'go-diagnosis') App.shell.go('diagnosis');
-  }
-
-  /* Arrow-key navigation for mood and energy options */
-  function onKeydown(e) {
-    var seg = e.target.closest && e.target.closest('[data-seg]');
-    if (!seg) return;
-    var dir = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
-    if (!dir) return;
-    e.preventDefault();
-    var group = App.dom.$$('[data-seg="' + seg.getAttribute('data-seg') + '"]', root);
-    var next = group[(group.indexOf(seg) + dir + group.length) % group.length];
-    next.focus();
-    selectSeg(next);
   }
 
   /* View */
@@ -479,13 +551,6 @@
         root.innerHTML = App.ui.empty('users', 'No crew configured.');
         return;
       }
-      var c = lastCheckin();
-      draft = {
-        mood: c && typeof c.mood === 'number' ? c.mood : null,
-        energy: c && typeof c.energy === 'number' ? c.energy : null,
-        sleepMin: c && typeof c.sleepMin === 'number' ? c.sleepMin : C.mental.sleep.defaultMin,
-      };
-
       var html = mentalSection();
       if (App.crew.isEva(crewId)) {
         html += bioSection() + suitSection();
@@ -497,7 +562,6 @@
       }
       root.innerHTML = html;
       root.addEventListener('click', onClick);
-      root.addEventListener('keydown', onKeydown);
       clearInterval(agoTimer);
       agoTimer = setInterval(refreshAgo, 30000);
     },
@@ -511,14 +575,15 @@
         keys = keys.filter(function (k) { return !pending[k]; });
         if (keys.length) refresh(keys);
       } else if (evt === 'checkin') {
-        if (p && p.crewId === crewId) refreshAgo();
+        if (p && p.crewId === crewId) replaceKeepingFocus($('#reg-mental-section'), mentalSection());
       }
     },
 
     destroy: function () {
+      if (wizard && wizard.body === document.getElementById('sheet-body')) App.ui.sheet.close();
+      wizard = null;
       if (root) {
         root.removeEventListener('click', onClick);
-        root.removeEventListener('keydown', onKeydown);
       }
       clearInterval(agoTimer);
       agoTimer = null;

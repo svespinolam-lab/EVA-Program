@@ -48,7 +48,7 @@
   }
   function metricValue(key, data, id) {
     if (!data) return null;
-    if (key === 'bp') return isNum(data.bpSys) ? data.bpSys : null;   // On demand: use the latest measurement
+    if (key === 'bp') { var manualBP=manualValues(id); return isNum(manualBP.bpSys) ? manualBP.bpSys : null; } // Manual cuff or external BLE cuff entry
     if (!isConnected(id, key)) return null;
     return isNum(data[key]) ? data[key] : null;
   }
@@ -323,12 +323,11 @@
       missing: m.onDemand ? 'Not measured' : 'No signal',
     };
     if (key === 'bp') {
+      var manualBP=manualValues(member.id);
       if (isNum(base.bpSys)) r.base = Math.round(base.bpSys) + '/' + Math.round(base.bpDia);
       if (value !== null) {
-        r.actual = App.fmt.metric('bp', data);
-        if (isNum(base.bpSys) && isNum(data.bpDia)) {
-          r.diff = signed(data.bpSys - base.bpSys, 0) + '/' + signed(data.bpDia - base.bpDia, 0);
-        }
+        r.actual = String(manualBP.bpSys) + '/' + (isNum(manualBP.bpDia) ? String(manualBP.bpDia) : '—');
+        if (isNum(base.bpSys) && isNum(manualBP.bpDia)) r.diff = signed(manualBP.bpSys - base.bpSys, 0) + '/' + signed(manualBP.bpDia - base.bpDia, 0);
       }
     } else {
       if (isNum(base[key])) r.base = App.fmt.num(base[key], m.decimals);
@@ -513,6 +512,7 @@
     var member = st.memberId;
     var row = Object.assign({}, all[member] || {});
     row[key] = input.value === '' ? null : Number(input.value);
+    if ((key==='bpSys'||key==='bpDia') && row.bpSys!=null && row.bpDia!=null) row.bpAt=Date.now();
     all[member] = row;
     App.store.set({physicalManual:all});
     updatePhysicalValues(App.crew.byId(member),getData(member));

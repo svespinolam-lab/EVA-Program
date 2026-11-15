@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#061a36"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -82,4 +82,4 @@ $('medicationList').innerHTML=(p.meds||[]).length?p.meds.map(x=>'<div class="med
 let avgMood=es.length?es.slice(0,7).reduce((a,x)=>a+({Bueno:3,Neutral:2,Bajo:1}[x.mood]||2),0)/Math.min(7,es.length):0;let avgEnergy=es.length?es.slice(0,7).reduce((a,x)=>a+({Alta:3,Media:2,Baja:1}[x.energy]||2),0)/Math.min(7,es.length):0;let sleeps=es.slice(0,7).map(x=>sleepHours(x.sleepStart,x.sleepEnd)).filter(x=>x!==null);let avgS=sleeps.length?sleeps.reduce((a,b)=>a+b,0)/sleeps.length:0;$('wellbeing').textContent=es.length?Math.round((avgMood+avgEnergy)/6*100):'—';$('wellbeingLabel').textContent=es.length?'Seguimiento activo':'Sin datos';$('avgMood').textContent=es.length?({Bueno:'Bueno',Neutral:'Neutral',Bajo:'Bajo'}[es[0].mood]||'—'):'—';$('avgEnergy').textContent=es.length?es[0].energy:'—';$('avgSleep').textContent=sleeps.length?avgS.toFixed(1)+' h':'—';$('summary').textContent=es.length?'Has guardado '+es.length+' registros. El resumen se calcula a partir de la información introducida; no representa una evaluación clínica.':'Guarda registros para visualizar tus tendencias personales.';$('updatedAt').textContent='ACTUALIZADO · '+(es[0]?new Date(es[0].date).toLocaleString('es-MX'):'—');$('diagHeart').textContent=ph.heart||'—';$('diagPressure').textContent=ph.pressure||'—';$('diagCount').textContent=es.length;$('diagHeartDate').textContent=ph.heartDate?new Date(ph.heartDate).toLocaleDateString('es-MX'):'—';$('diagPressureDate').textContent=ph.pressureDate?new Date(ph.pressureDate).toLocaleDateString('es-MX'):'—';}
 $('dateLabel').textContent=new Date().toLocaleDateString('es-MX',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).toUpperCase()+' · '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});$('diagDate').textContent='ÚLTIMOS 7 DÍAS · '+new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'short'});render();
 if('serviceWorker' in navigator && location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-</script></body></html>
+</script><script src="mobile/eva-mission.js"></script></body></html>

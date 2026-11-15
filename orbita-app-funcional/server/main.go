@@ -18,6 +18,7 @@ import (
 )
 
 type Reading struct {
+ EventID string `json:"event_id"`
  MissionID string `json:"mission_id"`
  AstronautID string `json:"astronauta_id"`
  Timestamp string `json:"timestamp"`

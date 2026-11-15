@@ -14,7 +14,7 @@
   var outbox = (Array.isArray(saved) ? saved : []).map(function (row) {
     if (!Array.isArray(row)) return row;
     var item = { type: 'telemetry', crewId: row[0], seq: row[1], t: row[2] };
-    FIELDS.forEach(function (k, i) { if (Number.isFinite(row[i + 3])) item[k] = row[i + 3]; });
+    FIELDS.forEach(function (k, i) { if (Number.isFinite(row[i + 3])) item[k] = row[i + 3]; });\n    item.source = row[16] || 'virtual';
     return item;
   }).filter(function (item) { return item && Number.isSafeInteger(item.seq) && item.seq > 0 && Number.isFinite(item.t) && typeof item.crewId === 'string'; }).slice(-20000);
   var seq = Math.max(Number(App.storage.get('linkSeq', 0)) || 0, outbox.reduce(function (n, item) { return Math.max(n, item.seq); }, 0));
@@ -29,7 +29,7 @@
   }
   function persist() {
     App.storage.set('outbox', outbox.map(function (item) {
-      return [item.crewId, item.seq, item.t].concat(FIELDS.map(function (k) { return item[k] == null ? null : item[k]; }));
+      return [item.crewId, item.seq, item.t].concat(FIELDS.map(function (k) { return item[k] == null ? null : item[k]; }), item.source || 'virtual');
     }));
   }
   function status() { return { state: state, host: host(), crewId: crewId(), queued: outbox.length, lastAck: lastAck }; }
@@ -272,7 +272,7 @@
   }
   function telemetry(event) {
     if (!enabled() || !event || event.remote || event.crewId !== crewId() || !App.crew.isEva(crewId()) || !event.data) return;
-    var item = { type: 'telemetry', crewId: crewId(), seq: ++seq, t: Date.now() };
+    var item = { type: 'telemetry', crewId: crewId(), seq: ++seq, t: Date.now(), source: event.data.source || 'virtual' };
     App.storage.set('linkSeq', seq);
     FIELDS.forEach(function (k) { if (Number.isFinite(event.data[k])) item[k] = event.data[k]; });
     outbox.push(item);

@@ -225,7 +225,8 @@
           lastAck = Math.max(lastAck, message.seq); prune(message.seq);
         }
         break;
-      case 'monthly-health-ok':\n        monthlyOutbox = monthlyOutbox.filter(function(x){return x.month !== message.month;}); persistMonthly(); monthlyInFlight = null; flushMonthly(); toast('Monthly clinical panel synced'); break;\n      case 'batch-ok':
+      case 'monthly-health-ok':
+        monthlyOutbox = monthlyOutbox.filter(function(x){return x.month !== message.month;}); persistMonthly(); monthlyInFlight = null; flushMonthly(); toast('Monthly clinical panel synced'); break;\n      case 'batch-ok':
         if (!inFlight) break;
         clearTimeout(batchTimer);
         if (message.n !== inFlight.length) { toast('Station could not accept the full batch; queued readings retained.'); if (socket) socket.close(); break; }

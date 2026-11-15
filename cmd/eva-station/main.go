@@ -113,13 +113,11 @@ func main() {
 		log.Fatal("both -tls-cert and -tls-key must be provided together")
 	}
 	scheme := "http"
-	if *tlsCert != "" {
-		scheme = "https"
-	}
+	if *tlsCert != "" { scheme = "https" }
 	httpSrv := &http.Server{Addr: fmt.Sprintf(":%d", *port), Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		var err error
-		if scheme == "https" {
+		if *tlsCert != "" {
 			err = httpSrv.ListenAndServeTLS(*tlsCert, *tlsKey)
 		} else {
 			err = httpSrv.ListenAndServe()
@@ -134,7 +132,7 @@ func main() {
 	fmt.Println("  ─────────────────────────────────────────────────────────")
 	fmt.Printf("  PC program      %s://localhost:%d\n", scheme, *port)
 	for _, u := range server.LANURLs(*port) {
-		fmt.Printf("  Phones (Wi-Fi)  %s/app/\n", strings.Replace(u, "http://", scheme+"://", 1))
+		fmt.Printf("  Phones (Wi-Fi)  %s://%s/app/\n", scheme, strings.TrimPrefix(u, "http://"))
 	}
 	fmt.Printf("  Database        %s\n", filepath.Join(*dataDir, "eva-station.db"))
 	fmt.Printf("  Web files       %s\n", source)

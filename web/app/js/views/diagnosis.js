@@ -630,7 +630,8 @@
     if (!st) return;
     var pair = e.target.closest('[data-dx-pair-ble]');
     if(pair){ if(!App.ble){App.ui.toast('Bluetooth adapter unavailable',{icon:'unlink',level:2});return;} App.ble.pair(st.memberId).catch(function(err){App.ui.toast(err.message,{icon:'unlink',level:2});}); return; }
-    var sync = e.target.closest('[data-dx-sync-monthly]');\n    if(sync){ var saved=manualValues(st.memberId); var now=new Date(); var month=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); try{ if(!App.link||!App.link.sendMonthlyHealth) throw new Error('Station link unavailable'); App.link.sendMonthlyHealth({month:month,hemoglobin:saved.hemoglobin,wbc:saved.wbc,platelets:saved.platelets,glucose:saved.glucose,orthostaticDrop:saved.orthostatic,weightKg:saved.weight,radiationMonth:saved.radiationMonth}); App.ui.toast('Monthly clinical panel queued for EVA Station',{icon:'check'}); }catch(err){App.ui.toast(err.message,{icon:'triangle',level:2});} return; }
+    var sync = e.target.closest('[data-dx-sync-monthly]');
+    if(sync){ var saved=manualValues(st.memberId); var now=new Date(); var month=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); try{ if(!App.link||!App.link.sendMonthlyHealth) throw new Error('Station link unavailable'); App.link.sendMonthlyHealth({month:month,hemoglobin:saved.hemoglobin,wbc:saved.wbc,platelets:saved.platelets,glucose:saved.glucose,orthostaticDrop:saved.orthostatic,weightKg:saved.weight,radiationMonth:saved.radiationMonth}); App.ui.toast('Monthly clinical panel queued for EVA Station',{icon:'check'}); }catch(err){App.ui.toast(err.message,{icon:'triangle',level:2});} return; }
     var b = e.target.closest('[data-dx-action]');
     if (!b || !st.root.contains(b)) return;
     var act = b.getAttribute('data-dx-action');

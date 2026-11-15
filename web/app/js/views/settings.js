@@ -164,6 +164,7 @@
         '<p class="cfg-mission__delay">' + App.icon('signal') + '<span>Earth delay: <strong class="mono">' + esc(delay) + '</strong> · Crew decisions are autonomous</span></p>' +
       '</div>' +
       '<nav class="list cfg-list" aria-label="Data and crew">' +
+        listItem('cfg-guide', 'open-guide', 'info', 'How to read EVA', 'Levels, score and screens') +
         listItem('cfg-export', 'open-export', 'download', 'Export data', plural(eventCount(), 'event', 'events') + ' in the blackbox') +
         listItem('cfg-reports', 'open-reports', 'fileText', 'Reports', reportsSub()) +
         listItem('cfg-roles', 'open-roles', 'users', 'Assign roles', rolesSummary()) +
@@ -557,6 +558,7 @@
 
   /* Close the drawer before opening a sheet */
   var SHEETS = { export: sheetExport, reports: sheetReports, roles: sheetRoles, voice: sheetVoice, simulation: sheetSim,
+    guide: function () { App.guide.open(); },
     link: function () { if (App.link && App.link.openSheet) App.link.openSheet(); } };
 
   function open(name) {

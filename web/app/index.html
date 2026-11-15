@@ -1,7 +1,11 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" translate="no" class="notranslate" data-theme="dark">
 <head>
 <meta charset="utf-8">
+<!-- The app is English-only: stop browser auto-translation (Chrome/Safari/Google Translate).
+     Live values re-render every second, so a translator flickers between languages and
+     mistranslates short codes (e.g. the initials "AR" become "Arkansas"). -->
+<meta name="google" content="notranslate">
 <title>EVA</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -27,6 +31,7 @@
 <link rel="stylesheet" href="css/views/profile.css">
 <link rel="stylesheet" href="css/views/settings.css">
 <link rel="stylesheet" href="css/views/link.css">
+<link rel="stylesheet" href="css/views/guide.css">
 </head>
 <body>
 
@@ -121,6 +126,7 @@
 <script src="js/views/diagnosis.js" defer></script>
 <script src="js/views/profile.js" defer></script>
 <script src="js/views/settings.js" defer></script>
+<script src="js/views/guide.js" defer></script>
 <!-- Startup -->
 <script src="js/app.js" defer></script>
 </body>

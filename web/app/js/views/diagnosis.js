@@ -12,6 +12,7 @@
   var MENTAL_OK = 'No signs of fatigue or stress.';
 
   var st = null;   // State while the view is open
+  var physicalOpen = false;
 
   /* Utilities */
   function esc(s) { return App.dom.esc(s); }
@@ -136,7 +137,8 @@
     return '<section class="card dx-hero" id="dx-hero" data-level="' + lvlAttr(lvl) + '" aria-labelledby="dx-hero-title">' +
       '<div class="dx-hero__top">' +
         '<p class="eyebrow dx-hero__who">' + esc(member.role + ' · ' + member.name) + '</p>' +
-        '<p class="dx-updated" id="dx-updated">' + esc(updatedText(a)) + '</p>' +
+        '<div class="dx-hero__tools"><p class="dx-updated" id="dx-updated">' + esc(updatedText(a)) + '</p>' +
+          '<button type="button" class="icon-btn" data-dx-action="guide" aria-label="How to read the score">' + App.icon('info') + '</button></div>' +
       '</div>' +
       '<div class="dx-hero__main">' +
         '<div id="dx-ring">' + App.ui.ring(score, lvl, 'score') + '</div>' +
@@ -489,7 +491,14 @@
   }
   function physicalSectionHTML(member, data) {
     var saved = manualValues(member.id);
-    return '<section class="section" id="dx-physical-complete" aria-label="Complete physical health"><div class="section__head"><div><p class="eyebrow">Daily measurements · 12 indicators</p><h2 class="section__title">Physical health</h2></div></div><div class="card dx-physical-notice"><b>Sensor connection status</b><p>All 12 parameters remain visible. If a sensor is not paired, its card says so; no missing value is treated as normal. Browser demo streams are simulated, not readings from suit hardware.</p></div><div class="dx-physical-grid">' + PHYSICAL.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div><p class="subtle">Manual entries are stored on this phone only. They are not sent to EVA Station.</p></section>';
+    return '<details class="dx-physical-disclosure" id="dx-physical-complete"' + (physicalOpen ? ' open' : '') + '>' +
+      '<summary class="dx-physical-summary"><span class="section__titles"><span class="eyebrow">Daily measurements</span>' +
+        '<span class="section__title">12 health indicators</span><span class="section__hint">Manual entries and devices · tap to expand</span></span>' +
+        App.icon('chevronRight') + '</summary><div class="section dx-physical-content">' +
+      '<div class="card dx-physical-notice"><b>Sensor connection status</b><p>All 12 parameters remain visible. If a sensor is not paired, its card says so; no missing value is treated as normal. Browser demo streams are simulated, not readings from suit hardware.</p></div><div class="dx-physical-grid">' + PHYSICAL.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div><p class="subtle">Manual entries are stored on this phone only. They are not sent to EVA Station.</p></div></details>';
+  }
+  function onPhysicalToggle(e) {
+    if (e.target.id === 'dx-physical-complete') physicalOpen = e.target.open;
   }
   function updatePhysicalValues(member, data) {
     if (!st || !q('#dx-physical-complete')) return;
@@ -636,6 +645,7 @@
     if (!b || !st.root.contains(b)) return;
     var act = b.getAttribute('data-dx-action');
     if (act === 'listen') listen();
+    else if (act === 'guide') App.guide.open();
     else if (act === 'log') App.shell.go('log');
     else if (act === 'reports') openReports();
   }
@@ -656,6 +666,7 @@
     st = { root: root, memberId: member ? member.id : null, iv: false, sig: {}, timer: null, tlTimer: null };
     root.addEventListener('click', onClick);
     root.addEventListener('change', savePhysicalInput);
+    root.addEventListener('toggle', onPhysicalToggle, true);
     if (!member) {
       root.innerHTML = App.ui.empty('users', 'No crew configured.');
       return;
@@ -706,8 +717,11 @@
 
   function destroy() {
     if (!st) return;
+    var physical = q('#dx-physical-complete');
+    if (physical) physicalOpen = physical.open;
     st.root.removeEventListener('click', onClick);
     st.root.removeEventListener('change', savePhysicalInput);
+    st.root.removeEventListener('toggle', onPhysicalToggle, true);
     clearInterval(st.timer);
     clearTimeout(st.tlTimer);
     st = null;

@@ -14,6 +14,8 @@ EVA es un sistema de monitoreo biomédico para caminatas espaciales (EVA) que fu
 
 > Concepto demostrativo con datos simulados: **no es un dispositivo médico**.
 
+> 📘 **¿Primera vez?** Lee el manual de uso e interpretación en español: [`docs/Manual-EVA-ES.docx`](docs/Manual-EVA-ES.docx). Explica cada pantalla con capturas numeradas, los colores, el Score y el IPV, un guion de demostración y un glosario inglés → español.
+
 ## ⚡ Forma más rápida (sin instalar nada)
 
 1. En GitHub: **Code → Download ZIP** y descomprímelo (o `git clone https://github.com/svespinolam-lab/EVA-Program.git`).

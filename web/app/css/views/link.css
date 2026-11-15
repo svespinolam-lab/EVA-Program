@@ -12,8 +12,13 @@
 .station-ack__buttons .btn { min-height: 56px; padding-inline: 6px; white-space: normal; }
 .station-ack__buttons .btn:last-child { color: var(--critical); }
 .has-station-acks .view { padding-bottom: calc(45dvh + var(--nav-h) + 48px); }
-.station-banners { display: grid; gap: 8px; }
-.station-banner .btn { min-height: 48px; }
+.station-banners { display: grid; gap: 8px; margin-bottom: var(--sp-3); }
+.station-banners:empty { display: none; }
+/* Compact: text on the left, a 44 px close button on the right (one banner per person) */
+.station-banner { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: 4px; padding: 10px 6px 10px 14px; }
+.station-banner p { margin-block: 4px 2px; }
+.station-banner__time { color: var(--text-3); font-family: var(--font-mono); font-size: 0.72rem; }
+.station-banner__close { margin: -6px 0; }
 .station-abort { position: fixed; inset: 0; z-index: calc(var(--z-splash) + 1); display: grid; place-items: center; overflow-y: auto; padding: max(24px, env(safe-area-inset-top)) 24px; background: var(--surface); color: var(--text); border: 8px solid var(--critical); }
 .station-abort[hidden] { display: none; }
 .station-abort > div { max-width: 560px; }

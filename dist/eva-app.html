@@ -1,7 +1,11 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" translate="no" class="notranslate" data-theme="dark">
 <head>
 <meta charset="utf-8">
+<!-- The app is English-only: stop browser auto-translation (Chrome/Safari/Google Translate).
+     Live values re-render every second, so a translator flickers between languages and
+     mistranslates short codes (e.g. the initials "AR" become "Arkansas"). -->
+<meta name="google" content="notranslate">
 <title>EVA</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -437,6 +441,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   font-family: var(--font-display); font-weight: 600; font-size: calc(var(--size) * 0.36);
   letter-spacing: 0.02em;
   box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--lvl, var(--line-strong));
+  overflow: hidden; white-space: nowrap; line-height: 1;   /* Initials never spill out of the circle */
 }
 .avatar--lg { --size: 64px; }
 
@@ -1567,8 +1572,13 @@ textarea.input { min-height: 180px; padding: 12px; font-family: var(--font-mono)
 .station-ack__buttons .btn { min-height: 56px; padding-inline: 6px; white-space: normal; }
 .station-ack__buttons .btn:last-child { color: var(--critical); }
 .has-station-acks .view { padding-bottom: calc(45dvh + var(--nav-h) + 48px); }
-.station-banners { display: grid; gap: 8px; }
-.station-banner .btn { min-height: 48px; }
+.station-banners { display: grid; gap: 8px; margin-bottom: var(--sp-3); }
+.station-banners:empty { display: none; }
+/* Compact: text on the left, a 44 px close button on the right (one banner per person) */
+.station-banner { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: 4px; padding: 10px 6px 10px 14px; }
+.station-banner p { margin-block: 4px 2px; }
+.station-banner__time { color: var(--text-3); font-family: var(--font-mono); font-size: 0.72rem; }
+.station-banner__close { margin: -6px 0; }
 .station-abort { position: fixed; inset: 0; z-index: calc(var(--z-splash) + 1); display: grid; place-items: center; overflow-y: auto; padding: max(24px, env(safe-area-inset-top)) 24px; background: var(--surface); color: var(--text); border: 8px solid var(--critical); }
 .station-abort[hidden] { display: none; }
 .station-abort > div { max-width: 560px; }
@@ -1576,6 +1586,43 @@ textarea.input { min-height: 180px; padding: 12px; font-family: var(--font-mono)
 .station-abort p { margin-block: 24px; }
 .station-abort .btn { min-height: 64px; width: 100%; }
 .reg-effort { display: inline-block; margin-bottom: 8px; padding: 4px 10px; border-radius: 20px; background: var(--surface-2); color: var(--text-2); font-size: 0.8rem; }
+
+</style>
+<style>/* css/views/guide.css */
+/* EVA · Guide sheet and its Diagnosis entry points. */
+.guide { display: grid; gap: var(--sp-6); min-width: 0; overflow-wrap: anywhere; }
+.guide .section { min-width: 0; }
+.guide-levels, .guide-scores { display: grid; gap: var(--sp-2); list-style: none; padding: 0; margin: 0; }
+.guide-level {
+  display: flex; align-items: flex-start; gap: var(--sp-3);
+  padding: var(--sp-3); border-radius: var(--r-md);
+  background: var(--lvl-soft); color: var(--text);
+  border: var(--stroke) solid transparent;
+}
+.guide-level[data-level="3"] { border-color: var(--lvl); }
+.guide-level__copy { display: grid; gap: var(--sp-1); min-width: 0; font-size: var(--fs-sm); }
+.guide-level__name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-weight: 600; color: var(--lvl); }
+.guide-scores li { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: baseline; gap: var(--sp-3); font-size: var(--fs-sm); }
+.guide-scores .badge { justify-content: center; }
+.guide-definitions { display: grid; gap: var(--sp-3); margin: 0; font-size: var(--fs-sm); }
+.guide-definitions dt { font-weight: 600; color: var(--text); }
+.guide-definitions dd { margin: 2px 0 0; color: var(--text-2); }
+
+.dx-hero__tools { display: flex; flex: none; align-items: center; gap: var(--sp-1); }
+.dx-hero__tools .icon-btn { flex: none; }
+.dx-physical-disclosure { min-width: 0; }
+.dx-physical-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  min-height: var(--tap); cursor: pointer; list-style: none;
+}
+.dx-physical-summary::-webkit-details-marker { display: none; }
+.dx-physical-summary .section__title { font-family: var(--font-display); font-weight: 700; line-height: var(--lh-tight); }
+.dx-physical-summary > .icon { flex: none; color: var(--text-2); transition: transform var(--dur-fast) var(--ease); }
+.dx-physical-disclosure[open] > .dx-physical-summary > .icon { transform: rotate(90deg); }
+.dx-physical-content { margin-top: var(--sp-3); }
+@media (prefers-reduced-motion: reduce) {
+  .dx-physical-summary > .icon { transition: none; }
+}
 
 </style>
 </head>
@@ -2337,7 +2384,7 @@ App.config = {
     co2:   { theta: 0.05, sigma: 0.04,  min: 0,   max: 30 },
   };
   var O2_DRAIN_PER_SEC = 1 / 60;   // Drain one reserve minute per 60 real seconds
-  var BATT_DRAIN_PER_SEC = 0.006;  // Battery percent per second
+  var BATT_DRAIN_PER_SEC = 0.002;  // Battery percent per second (~60 % over an 8 h EVA)
   var CLEAR_SEC = 20;              // Seconds to recover after clearing a fault
 
   /* Simulated faults (Settings > Simulate fault). metric: affected signal; target: final value; sec: transition duration. */
@@ -2410,6 +2457,7 @@ App.config = {
       mean: mean,
       val: Object.assign({}, mean, { o2: o2Start, batt: battStart }),
       norm: { o2: o2Start, batt: battStart },   // Reserves consumed over time
+      full: { o2: o2Start, batt: battStart },   // Refill values (suit swapped between EVAs)
       sensors: {}, lost: {}, pending: {}, hist: {}, hardware: {},
       bp: null, bpStatus: 'idle', bpPromise: null,
       scen: {},                                  // Active faults: id to {p (0..1), clearing, at}
@@ -2497,6 +2545,12 @@ App.config = {
     if (!warmup) {
       sim.norm.o2 = Math.max(0, sim.norm.o2 - O2_DRAIN_PER_SEC * o2Mult * dt);
       sim.norm.batt = Math.max(0, sim.norm.batt - BATT_DRAIN_PER_SEC * dt);
+      // Demo: refill before the caution band unless a fault drives it, so a
+      // phone left open for hours never sticks on a false critical alarm.
+      if ((sim.norm.o2 < 95 && !sim.scen.leak) || (sim.norm.batt < 38 && !sim.scen.battery)) {
+        sim.norm.o2 = sim.full.o2;
+        sim.norm.batt = sim.full.batt;
+      }
     }
     sim.val.o2 = sim.norm.o2;
     sim.val.batt = targets.batt ? lerp(sim.norm.batt, targets.batt.target, targets.batt.e) : sim.norm.batt;
@@ -4032,14 +4086,27 @@ App.config = {
     if (!duplicate) say(a.voice, a.level === 'EMERGENCY' ? 3 : 2);
     log('alert', a.reason, a.level === 'EMERGENCY' ? 3 : 2, a);
   }
-  function banner(title, text, critical) {
+  /* Station banners (buddy escalations and operator instructions). One banner per
+     key: a repeat updates it in place instead of stacking, newest first, and at
+     most MAX_BANNERS stay visible so they never bury the screen. */
+  var MAX_BANNERS = 2;
+  function banner(title, text, critical, key) {
     var slot = document.getElementById('station-banners');
-    var box = document.createElement('section');
-    box.className = 'station-banner'; box.setAttribute('role', 'alert');
-    if (critical) box.dataset.level = '3';
-    box.innerHTML = '<strong>' + esc(title) + '</strong><p>' + esc(text) + '</p><button type="button" class="btn btn--secondary">Dismiss</button>';
+    if (!slot) return;
+    var box = key ? Array.prototype.find.call(slot.children, function (el) { return el.dataset.key === key; }) : null;
+    if (!box) {
+      box = document.createElement('section');
+      box.className = 'station-banner'; box.setAttribute('role', 'alert');
+      if (key) box.dataset.key = key;
+    }
+    if (critical) box.dataset.level = '3'; else delete box.dataset.level;
+    var at = new Date();
+    box.innerHTML = '<div class="station-banner__text"><strong>' + esc(title) + '</strong><p>' + esc(text) + '</p>' +
+      '<small class="station-banner__time">' + esc(('0' + at.getHours()).slice(-2) + ':' + ('0' + at.getMinutes()).slice(-2) + ':' + ('0' + at.getSeconds()).slice(-2)) + '</small></div>' +
+      '<button type="button" class="icon-btn station-banner__close" aria-label="Dismiss">' + App.icon('close') + '</button>';
     box.querySelector('button').onclick = function () { box.remove(); };
-    slot.appendChild(box);
+    slot.insertBefore(box, slot.firstChild);
+    while (slot.children.length > MAX_BANNERS) slot.removeChild(slot.lastElementChild);
   }
   function abort(message) {
     var key = String(message.missionId) + ':' + message.reason;
@@ -4087,10 +4154,10 @@ App.config = {
       case 'crew': mission(message.mission); crew(message.crew); break;
       case 'alert': case 'alert-update': alert(message.alert); break;
       case 'buddy':
-        banner(message.role + ' ' + message.name + ' needs assistance', message.reason, true);
+        banner(message.role + ' ' + message.name + ' needs assistance', message.reason, true, 'buddy:' + (message.crewId || message.name));
         say(message.voice, 3); log('alert', message.name + ' needs assistance: ' + message.reason, 3, message); break;
       case 'instruction':
-        banner('From EVA Station', message.text, false); say(message.text, 2); log('system', message.text, 1, message); break;
+        banner('From EVA Station', message.text, false, 'instruction'); say(message.text, 2); log('system', message.text, 1, message); break;
       case 'abort': abort(message); break;
       case 'inject': App.telemetry.inject(crewId(), message.scenario); break;
       case 'clear': App.telemetry.clearScenarios(crewId()); break;
@@ -4785,6 +4852,7 @@ App.config = {
   var MENTAL_OK = 'No signs of fatigue or stress.';
 
   var st = null;   // State while the view is open
+  var physicalOpen = false;
 
   /* Utilities */
   function esc(s) { return App.dom.esc(s); }
@@ -4909,7 +4977,8 @@ App.config = {
     return '<section class="card dx-hero" id="dx-hero" data-level="' + lvlAttr(lvl) + '" aria-labelledby="dx-hero-title">' +
       '<div class="dx-hero__top">' +
         '<p class="eyebrow dx-hero__who">' + esc(member.role + ' · ' + member.name) + '</p>' +
-        '<p class="dx-updated" id="dx-updated">' + esc(updatedText(a)) + '</p>' +
+        '<div class="dx-hero__tools"><p class="dx-updated" id="dx-updated">' + esc(updatedText(a)) + '</p>' +
+          '<button type="button" class="icon-btn" data-dx-action="guide" aria-label="How to read the score">' + App.icon('info') + '</button></div>' +
       '</div>' +
       '<div class="dx-hero__main">' +
         '<div id="dx-ring">' + App.ui.ring(score, lvl, 'score') + '</div>' +
@@ -5262,7 +5331,14 @@ App.config = {
   }
   function physicalSectionHTML(member, data) {
     var saved = manualValues(member.id);
-    return '<section class="section" id="dx-physical-complete" aria-label="Complete physical health"><div class="section__head"><div><p class="eyebrow">Daily measurements · 12 indicators</p><h2 class="section__title">Physical health</h2></div></div><div class="card dx-physical-notice"><b>Sensor connection status</b><p>All 12 parameters remain visible. If a sensor is not paired, its card says so; no missing value is treated as normal. Browser demo streams are simulated, not readings from suit hardware.</p></div><div class="dx-physical-grid">' + PHYSICAL.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div><p class="subtle">Manual entries are stored on this phone only. They are not sent to EVA Station.</p></section>';
+    return '<details class="dx-physical-disclosure" id="dx-physical-complete"' + (physicalOpen ? ' open' : '') + '>' +
+      '<summary class="dx-physical-summary"><span class="section__titles"><span class="eyebrow">Daily measurements</span>' +
+        '<span class="section__title">12 health indicators</span><span class="section__hint">Manual entries and devices · tap to expand</span></span>' +
+        App.icon('chevronRight') + '</summary><div class="section dx-physical-content">' +
+      '<div class="card dx-physical-notice"><b>Sensor connection status</b><p>All 12 parameters remain visible. If a sensor is not paired, its card says so; no missing value is treated as normal. Browser demo streams are simulated, not readings from suit hardware.</p></div><div class="dx-physical-grid">' + PHYSICAL.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div><p class="subtle">Manual entries are stored on this phone only. They are not sent to EVA Station.</p></div></details>';
+  }
+  function onPhysicalToggle(e) {
+    if (e.target.id === 'dx-physical-complete') physicalOpen = e.target.open;
   }
   function updatePhysicalValues(member, data) {
     if (!st || !q('#dx-physical-complete')) return;
@@ -5409,6 +5485,7 @@ App.config = {
     if (!b || !st.root.contains(b)) return;
     var act = b.getAttribute('data-dx-action');
     if (act === 'listen') listen();
+    else if (act === 'guide') App.guide.open();
     else if (act === 'log') App.shell.go('log');
     else if (act === 'reports') openReports();
   }
@@ -5429,6 +5506,7 @@ App.config = {
     st = { root: root, memberId: member ? member.id : null, iv: false, sig: {}, timer: null, tlTimer: null };
     root.addEventListener('click', onClick);
     root.addEventListener('change', savePhysicalInput);
+    root.addEventListener('toggle', onPhysicalToggle, true);
     if (!member) {
       root.innerHTML = App.ui.empty('users', 'No crew configured.');
       return;
@@ -5479,8 +5557,11 @@ App.config = {
 
   function destroy() {
     if (!st) return;
+    var physical = q('#dx-physical-complete');
+    if (physical) physicalOpen = physical.open;
     st.root.removeEventListener('click', onClick);
     st.root.removeEventListener('change', savePhysicalInput);
+    st.root.removeEventListener('toggle', onPhysicalToggle, true);
     clearInterval(st.timer);
     clearTimeout(st.tlTimer);
     st = null;
@@ -5974,6 +6055,7 @@ App.config = {
         '<p class="cfg-mission__delay">' + App.icon('signal') + '<span>Earth delay: <strong class="mono">' + esc(delay) + '</strong> · Crew decisions are autonomous</span></p>' +
       '</div>' +
       '<nav class="list cfg-list" aria-label="Data and crew">' +
+        listItem('cfg-guide', 'open-guide', 'info', 'How to read EVA', 'Levels, score and screens') +
         listItem('cfg-export', 'open-export', 'download', 'Export data', plural(eventCount(), 'event', 'events') + ' in the blackbox') +
         listItem('cfg-reports', 'open-reports', 'fileText', 'Reports', reportsSub()) +
         listItem('cfg-roles', 'open-roles', 'users', 'Assign roles', rolesSummary()) +
@@ -6367,6 +6449,7 @@ App.config = {
 
   /* Close the drawer before opening a sheet */
   var SHEETS = { export: sheetExport, reports: sheetReports, roles: sheetRoles, voice: sheetVoice, simulation: sheetSim,
+    guide: function () { App.guide.open(); },
     link: function () { if (App.link && App.link.openSheet) App.link.openSheet(); } };
 
   function open(name) {
@@ -6388,6 +6471,72 @@ App.config = {
 
   App.views = App.views || {};
   App.views.settings = { renderDrawer: renderDrawer, open: open };
+})();
+
+</script>
+<script>/* js/views/guide.js */
+/* EVA · Quick reference for levels, score, screens, and labels. */
+(function () {
+  'use strict';
+  var App = window.App;
+  var esc = App.dom.esc;
+  var LEVELS = [
+    { name: 'Nominal', code: 'OK', icon: 'check', range: '0–24', meaning: 'All readings in range; continue.' },
+    { name: 'Caution', code: 'CAUT.', icon: 'info', range: '25–49', meaning: 'A reading left its normal range; watch it and slow down.' },
+    { name: 'High risk', code: 'HIGH', icon: 'triangle', range: '50–79', meaning: 'A reading is far out of range; act now and follow the advice shown.' },
+    { name: 'Critical', code: 'CRIT.', icon: 'octagon', range: '80–100', meaning: 'Immediate danger; stop, follow the protocol, return to the airlock.' }
+  ];
+
+  function section(id, title, html) {
+    return '<section class="section" aria-labelledby="guide-' + id + '"><h3 class="section__title" id="guide-' + id + '">' +
+      esc(title) + '</h3>' + html + '</section>';
+  }
+
+  function definitions(items) {
+    return '<dl class="guide-definitions">' + items.map(function (item) {
+      return '<div><dt>' + esc(item[0]) + '</dt><dd>' + esc(item[1]) + '</dd></div>';
+    }).join('') + '</dl>';
+  }
+
+  App.guide = {
+    open: function () {
+      var levels = '<ul class="guide-levels">' + LEVELS.map(function (level, i) {
+        return '<li class="guide-level" data-level="' + i + '"><span class="finding__icon">' + App.icon(level.icon) + '</span>' +
+          '<div class="guide-level__copy"><p class="guide-level__name">' + esc(level.name) + ' <span class="badge">' + esc(level.code) + '</span></p>' +
+          '<p>' + esc(level.meaning) + '</p></div></li>';
+      }).join('') + '</ul>';
+      var scores = '<ul class="guide-scores">' + LEVELS.map(function (level, i) {
+        return '<li data-level="' + i + '"><span class="badge">' + esc(level.range) + '</span><span>' + esc(level.name) +
+          (i === 0 ? ' <span class="muted">(higher still means closer to a limit)</span>' : '') + '</span></li>';
+      }).join('') + '</ul>';
+
+      App.ui.sheet.open({
+        title: 'How to read EVA',
+        html: '<div class="guide">' +
+          section('levels', 'Status levels', levels) +
+          section('score', 'Score 0–100', scores) +
+          section('topbar', 'Top bar', definitions([
+            ['Speaker', 'Voice alerts on/off.'],
+            ['EVA n · T+hh:mm:ss', 'EVA number and time since the EVA started. Green dot = live data.'],
+            ['Crew chips', 'Tap to choose whose data you see. Ring colour = that person’s level.'],
+            ['Station chip', 'Link to the EVA Station PC: off / connecting / online. Readings are queued while offline.'],
+            ['Coloured banner', 'The most serious active alert. Tap it for details.']
+          ])) +
+          section('tabs', 'Tabs', definitions([
+            ['Log', 'Daily check-in (mood, energy, sleep) plus live body and suit sensors.'],
+            ['Diagnosis', 'Score, active findings and what to do.'],
+            ['Profile', 'Identity, pre-mission baseline and history.']
+          ])) +
+          section('labels', 'Labels', definitions([
+            ['DEMO · NOT PAIRED', 'Simulated value; no real sensor.'],
+            ['Baseline', 'The person’s normal value measured before the mission.'],
+            ['Diff.', 'Difference from baseline.'],
+            ['Hear diagnosis', 'Reads the result aloud.']
+          ])) + '</div>',
+        onMount: function (body) { body.scrollTop = 0; }
+      });
+    }
+  };
 })();
 
 </script>

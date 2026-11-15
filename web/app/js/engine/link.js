@@ -181,14 +181,27 @@
     if (!duplicate) say(a.voice, a.level === 'EMERGENCY' ? 3 : 2);
     log('alert', a.reason, a.level === 'EMERGENCY' ? 3 : 2, a);
   }
-  function banner(title, text, critical) {
+  /* Station banners (buddy escalations and operator instructions). One banner per
+     key: a repeat updates it in place instead of stacking, newest first, and at
+     most MAX_BANNERS stay visible so they never bury the screen. */
+  var MAX_BANNERS = 2;
+  function banner(title, text, critical, key) {
     var slot = document.getElementById('station-banners');
-    var box = document.createElement('section');
-    box.className = 'station-banner'; box.setAttribute('role', 'alert');
-    if (critical) box.dataset.level = '3';
-    box.innerHTML = '<strong>' + esc(title) + '</strong><p>' + esc(text) + '</p><button type="button" class="btn btn--secondary">Dismiss</button>';
+    if (!slot) return;
+    var box = key ? Array.prototype.find.call(slot.children, function (el) { return el.dataset.key === key; }) : null;
+    if (!box) {
+      box = document.createElement('section');
+      box.className = 'station-banner'; box.setAttribute('role', 'alert');
+      if (key) box.dataset.key = key;
+    }
+    if (critical) box.dataset.level = '3'; else delete box.dataset.level;
+    var at = new Date();
+    box.innerHTML = '<div class="station-banner__text"><strong>' + esc(title) + '</strong><p>' + esc(text) + '</p>' +
+      '<small class="station-banner__time">' + esc(('0' + at.getHours()).slice(-2) + ':' + ('0' + at.getMinutes()).slice(-2) + ':' + ('0' + at.getSeconds()).slice(-2)) + '</small></div>' +
+      '<button type="button" class="icon-btn station-banner__close" aria-label="Dismiss">' + App.icon('close') + '</button>';
     box.querySelector('button').onclick = function () { box.remove(); };
-    slot.appendChild(box);
+    slot.insertBefore(box, slot.firstChild);
+    while (slot.children.length > MAX_BANNERS) slot.removeChild(slot.lastElementChild);
   }
   function abort(message) {
     var key = String(message.missionId) + ':' + message.reason;
@@ -236,10 +249,10 @@
       case 'crew': mission(message.mission); crew(message.crew); break;
       case 'alert': case 'alert-update': alert(message.alert); break;
       case 'buddy':
-        banner(message.role + ' ' + message.name + ' needs assistance', message.reason, true);
+        banner(message.role + ' ' + message.name + ' needs assistance', message.reason, true, 'buddy:' + (message.crewId || message.name));
         say(message.voice, 3); log('alert', message.name + ' needs assistance: ' + message.reason, 3, message); break;
       case 'instruction':
-        banner('From EVA Station', message.text, false); say(message.text, 2); log('system', message.text, 1, message); break;
+        banner('From EVA Station', message.text, false, 'instruction'); say(message.text, 2); log('system', message.text, 1, message); break;
       case 'abort': abort(message); break;
       case 'inject': App.telemetry.inject(crewId(), message.scenario); break;
       case 'clear': App.telemetry.clearScenarios(crewId()); break;

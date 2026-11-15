@@ -64,6 +64,8 @@ type suit struct {
 	on       bool
 	v        map[string]float64
 	o2, batt float64
+	o2Full   float64 // reserves at the start of each EVA (refilled between EVAs)
+	battFull float64
 	effort   int
 	phase    float64
 	bpSys    float64
@@ -92,6 +94,7 @@ func New(ing Ingester, crew []model.Crew, bases map[string]model.Baseline) *Sim 
 		}
 		su := &suit{c: c, b: b, o2: 372 + 8*float64(i), batt: 79 + 3*float64(i), phase: float64(i) * 97, scen: map[string]*scen{},
 			bpSys: b.BPSys + 4, bpDia: b.BPDia + 2}
+		su.o2Full, su.battFull = su.o2, su.batt
 		su.v = map[string]float64{"hr": b.HRRest + 30, "spo2": b.SpO2 - 0.6, "temp": b.Temp + 0.35, "rr": b.RR + 5, "hrv": b.HRV * 0.7,
 			"rad": 0.055, "suitP": 4.3, "co2": 2.3}
 		s.suits[c.ID] = su
@@ -293,8 +296,15 @@ func (s *Sim) step(su *suit, now time.Time) (model.Sample, bool) {
 	}
 	su.v["spo2"] = clamp(su.v["spo2"], 70, 100)
 	su.v["rad"] = math.Max(0.01, su.v["rad"])
+	// Consumables: an 8 h EVA uses ~60 % battery. When either reserve would
+	// reach its caution band (O2 < 90 min, battery < 35 %) without a fault
+	// scenario forcing it, the suit is swapped/recharged as between two EVAs,
+	// so a station left running for hours never sticks on a false CRITICAL.
 	su.o2 = math.Max(0, su.o2-o2mult/60)
-	su.batt = math.Max(0, su.batt-0.006)
+	su.batt = math.Max(0, su.batt-0.002)
+	if (su.o2 < 95 && su.scen["leak"] == nil) || (su.batt < 38 && su.scen["battery"] == nil) {
+		su.o2, su.batt = su.o2Full, su.battFull
+	}
 	batt := su.batt
 	if tg, ok := targets["batt"]; ok {
 		batt = su.batt + (tg[0]-su.batt)*tg[1]

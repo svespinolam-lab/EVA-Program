@@ -19,7 +19,7 @@
     co2:   { theta: 0.05, sigma: 0.04,  min: 0,   max: 30 },
   };
   var O2_DRAIN_PER_SEC = 1 / 60;   // Drain one reserve minute per 60 real seconds
-  var BATT_DRAIN_PER_SEC = 0.006;  // Battery percent per second
+  var BATT_DRAIN_PER_SEC = 0.002;  // Battery percent per second (~60 % over an 8 h EVA)
   var CLEAR_SEC = 20;              // Seconds to recover after clearing a fault
 
   /* Simulated faults (Settings > Simulate fault). metric: affected signal; target: final value; sec: transition duration. */
@@ -92,6 +92,7 @@
       mean: mean,
       val: Object.assign({}, mean, { o2: o2Start, batt: battStart }),
       norm: { o2: o2Start, batt: battStart },   // Reserves consumed over time
+      full: { o2: o2Start, batt: battStart },   // Refill values (suit swapped between EVAs)
       sensors: {}, lost: {}, pending: {}, hist: {}, hardware: {},
       bp: null, bpStatus: 'idle', bpPromise: null,
       scen: {},                                  // Active faults: id to {p (0..1), clearing, at}
@@ -179,6 +180,12 @@
     if (!warmup) {
       sim.norm.o2 = Math.max(0, sim.norm.o2 - O2_DRAIN_PER_SEC * o2Mult * dt);
       sim.norm.batt = Math.max(0, sim.norm.batt - BATT_DRAIN_PER_SEC * dt);
+      // Demo: refill before the caution band unless a fault drives it, so a
+      // phone left open for hours never sticks on a false critical alarm.
+      if ((sim.norm.o2 < 95 && !sim.scen.leak) || (sim.norm.batt < 38 && !sim.scen.battery)) {
+        sim.norm.o2 = sim.full.o2;
+        sim.norm.batt = sim.full.batt;
+      }
     }
     sim.val.o2 = sim.norm.o2;
     sim.val.batt = targets.batt ? lerp(sim.norm.batt, targets.batt.target, targets.batt.e) : sim.norm.batt;

@@ -399,6 +399,7 @@
         action: '<span id="dx-' + g + '-badge">' + App.ui.badge(info.level) + '</span>',
       }) +
       '<div class="card">' +
+        (g === 'bio' ? '<p class="subtle">Only paired BLE channels are hardware readings. Unpaired channels use demo data or show no measurement.</p>' : '') +
         '<div class="dx-group-result" id="dx-' + g + '-result">' + App.ui.statusLine(info.level, info.text) + '</div>' +
         '<div class="dx-table-wrap">' + tableHTML(g, member, a, data) + '</div>' +
       '</div></section>';

@@ -92,7 +92,7 @@
       mean: mean,
       val: Object.assign({}, mean, { o2: o2Start, batt: battStart }),
       norm: { o2: o2Start, batt: battStart },   // Reserves consumed over time
-      sensors: {}, lost: {}, pending: {}, hist: {},
+      sensors: {}, lost: {}, pending: {}, hist: {}, hardware: {},
       bp: null, bpStatus: 'idle', bpPromise: null,
       scen: {},                                  // Active faults: id to {p (0..1), clearing, at}
       phase: Math.random() * Math.PI * 2,
@@ -345,12 +345,29 @@
       if (!sim) return null;
       var d = { t: sim.t, effort: sim.effort };
       LIVE_KEYS.forEach(function (k) {
-        d[k] = sim.sensors[k] === 'connected' ? round(sim.val[k], decimalsOf(k)) : null;
+        d[k] = sim.sensors[k] === 'connected' ? round(Number.isFinite(sim.hardware[k]) ? sim.hardware[k] : sim.val[k], decimalsOf(k)) : null;
       });
       d.bpSys = sim.bp ? sim.bp.bpSys : null;
       d.bpDia = sim.bp ? sim.bp.bpDia : null;
       d.bpAt = sim.bp ? sim.bp.bpAt : null;
+      d.source = Object.keys(sim.hardware).length ? 'device' : 'virtual';
       return d;
+    },
+
+    ingestHardware: function(crewId,key,value) {
+      var sim=sims[crewId];
+      if(!sim || LIVE_KEYS.indexOf(key)<0 || !Number.isFinite(value)) return false;
+      sim.hardware[key]=value;
+      delete sim.lost[key];
+      setStatus(sim,key,'connected');
+      App.bus.emit('telemetry',{crewId:crewId,data:api.latest(crewId),hardware:true});
+      return true;
+    },
+    clearHardware: function(crewId,key) {
+      var sim=sims[crewId]; if(!sim) return;
+      delete sim.hardware[key];
+      setStatus(sim,key,'disconnected','lost');
+      App.bus.emit('telemetry',{crewId:crewId,data:api.latest(crewId),hardware:true});
     },
 
     history: function (crewId, key) {

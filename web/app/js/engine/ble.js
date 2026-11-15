@@ -34,10 +34,11 @@
       optionalServices:SERVICES
     }).then(function(device){
       return device.gatt.connect().then(function(){
-        var tasks=[];
-        if(device.uuids.indexOf('heart_rate')>=0)tasks.push(listen(device,'heart_rate','heart_rate_measurement',crewId,'hr',function(dv){var flags=dv.getUint8(0);return flags&1?dv.getUint16(1,true):dv.getUint8(1);}));
-        if(device.uuids.indexOf('health_thermometer')>=0)tasks.push(listen(device,'health_thermometer','temperature_measurement',crewId,'temp',function(dv){return float11073(dv,1);}));
-        if(device.uuids.indexOf('pulse_oximeter')>=0)tasks.push(listen(device,'pulse_oximeter','plx_continuous_measurement',crewId,'spo2',function(dv){return sfloat(dv,1);}));
+        var tasks=[
+          listen(device,'heart_rate','heart_rate_measurement',crewId,'hr',function(dv){var flags=dv.getUint8(0);return flags&1?dv.getUint16(1,true):dv.getUint8(1);}).catch(function(){return null;}),
+          listen(device,'health_thermometer','temperature_measurement',crewId,'temp',function(dv){return float11073(dv,1);}).catch(function(){return null;}),
+          listen(device,'pulse_oximeter','plx_continuous_measurement',crewId,'spo2',function(dv){return sfloat(dv,1);}).catch(function(){return null;})
+        ];
         return Promise.all(tasks).then(function(chars){
           if(!chars.length)throw new Error('No supported measurement characteristic found on this device.');
           links[crewId]=links[crewId]||[];links[crewId].push({device:device,chars:chars});

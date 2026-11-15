@@ -27,7 +27,7 @@ type Reading struct {
  Radiation float64 `json:"radiacion_eva_msv"`
  Effort string `json:"nivel_esfuerzo"`
 }
-type Status struct { Reading; Score int `json:"ipv_score"`; Level string `json:"semaforo"`; Reason string `json:"diagnostico"`; Protocol string `json:"protocolo"` }
+type Status struct { Reading; AlertID int64 `json:"alert_id"`; Score int `json:"ipv_score"`; Level string `json:"semaforo"`; Reason string `json:"diagnostico"`; Protocol string `json:"protocolo"` }
 type SafeCheck struct { AstronautID string `json:"astronauta_id"`; MissionID string `json:"mision_id"`; TrafficLight string `json:"semaforo_go_nogo"`; Vulnerability int `json:"indice_vulnerabilidad"`; Summary string `json:"resumen_seguro_pc"`; Timestamp string `json:"timestamp"` }
 
 var db *sql.DB
@@ -95,7 +95,7 @@ func record(r Reading) (Status,error){
  if s.Level=="RISK"||s.Level=="EMERGENCY"{
   msg:="Check vital signs and follow crew protocol.";if s.Level=="EMERGENCY"{msg="Critical vital signs. Stop EVA and return to airlock."}
   res,e:=db.Exec("INSERT INTO alerts(mission_id,astronaut_id,ts,level,code,message,reason,protocol) VALUES(?,?,?,?,?,?,?,?)",r.MissionID,r.AstronautID,s.Timestamp,s.Level,"VITALS_"+s.Level,msg,s.Reason,s.Protocol)
-  if e==nil&&s.Level=="EMERGENCY"{id,_:=res.LastInsertId();go escalate(id,r.AstronautID,r.MissionID)}
+  if e==nil {id,_:=res.LastInsertId();s.AlertID=id;mu.Lock();latest[r.AstronautID]=s;mu.Unlock();if s.Level=="EMERGENCY"{go escalate(id,r.AstronautID,r.MissionID)}}
  }
  return s,nil
 }

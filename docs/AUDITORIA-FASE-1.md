@@ -12,14 +12,14 @@ Leyenda: ✅ implementado **y con prueba automática** · 🟡 implementado, ver
 - **Estado real:** EVA es un **prototipo integrado y demostrable sin internet**: un solo ejecutable (servidor Go + SQLite + consola de PC + app web del teléfono). El flujo teléfono → estación → base de datos → alerta → escalamiento → caja negra → reportes funciona de punta a punta.
 - **No cumple todavía los prompts 2–7 completos.** Las brechas grandes están en EVA Mobile (perfil completo, 12 parámetros con historial de 7 días, salud mental de 8 secciones, ciclo menstrual, BLE real), en el backend (migraciones versionadas, identidad de dispositivos, roles, respaldos) y en el perímetro sin GPS (no existe).
 - **Antes de esta fase había 0 pruebas automáticas** y la estación no tenía **ninguna autenticación**: cualquier teléfono en la red podía abrir la consola, abortar la EVA o descargar todos los expedientes médicos (`/api/export/…`), y cualquier página web podía enviarle órdenes (`Access-Control-Allow-Origin: *`).
-- **Esta fase corrigió 10 problemas críticos** (sección 5), agregó **15 pruebas automáticas** (unidad, persistencia, seguridad y WebSocket) y **CI en GitHub Actions**.
+- **Esta fase corrigió 10 problemas críticos** (sección 5), agregó **15 pruebas automáticas** (unidad, persistencia, seguridad y WebSocket) y **amplió el CI de GitHub Actions** que ya existía.
 
 ## 1. Ramas del repositorio
 
 | Rama | Estado | Recomendación |
 |---|---|---|
 | `main` = `integracion-eva` (`6268a96`) | Base canónica: estación + app + docs + manual. | Seguir trabajando desde aquí, por fases, con PR. |
-| `app-movil` | **Prototipo paralelo** «orbita-app-funcional» (12 archivos, 474 líneas, servidor Go propio). Esquema **incompatible** con `main` (`astronauta_id`, timestamps como texto, `/api/telemetry`, `/ws/monitor`). | **No fusionar.** Sus ideas valiosas ya se portaron: token de operador → `internal/server/auth.go`; CI → `.github/workflows/ci.yml`; ID de evento para deduplicar → plan Fase 4 (hoy la clave `(crew_id, ts)` + `seq` ya evita duplicados, con prueba). Conservar como referencia histórica. |
+| `app-movil` | **Prototipo paralelo** «orbita-app-funcional» (12 archivos, 474 líneas, servidor Go propio). Esquema **incompatible** con `main` (`astronauta_id`, timestamps como texto, `/api/telemetry`, `/ws/monitor`). | **No fusionar.** Sus ideas valiosas ya se portaron: token de operador → `internal/server/auth.go`; CI → ampliado en `.github/workflows/eva-go.yml` (ya existía); ID de evento para deduplicar → plan Fase 4 (hoy la clave `(crew_id, ts)` + `seq` ya evita duplicados, con prueba). Conservar como referencia histórica. |
 | `dev-backend`, `programa-pc` | Vacías: solo el commit inicial (anteriores a `main`). | Borrarlas, o recrearlas desde `main` si se van a usar. |
 
 ## 2. Arquitectura requerida vs. actual
@@ -121,7 +121,7 @@ Existen: `README.md`, `INSTRUCCIONES.md`, `docs/DESIGN.md`, `docs/DATABASE.md` y
 | P2 | Alta | Sincronización mensual rota: la expresión regular rechazaba meses válidos («2026-11»). | ✅ Corregido F1 (la UI de envío sigue pendiente → Fase 2) |
 | P3 | Media | Instrucciones enviadas con el teléfono desconectado se pierden; la cola del teléfono descarta lo más viejo pasadas 20 000 lecturas (~5,6 h). | Pendiente → Fase 4 |
 | P4 | Media | Sin migraciones versionadas ni respaldos. | Pendiente → Fase 4 |
-| Q1 | Alta | **0 pruebas automáticas** y sin CI. | ✅ 15 pruebas + CI |
+| Q1 | Alta | **0 pruebas automáticas**: el CI existente (`eva-go.yml`) compilaba pero no tenía nada que probar. | ✅ 15 pruebas + CI ampliado |
 | Q2 | Media | Lógica duplicada: 4 clasificadores de riesgo (config, risk.js, log.js, Go) con umbrales distintos; 3 presentaciones de salud física. | Pendiente → Fase 2/4 |
 | R1 | Media | Ramas duplicadas o vacías (`app-movil`, `dev-backend`, `programa-pc`). | Documentado (sección 1) |
 | PV1 | Media (decisión) | La preparación diaria envía horas exactas de sueño/hidratación/fatiga; la pantalla de la PC dice que solo llega «veredicto, índice y códigos». | **Decisión del equipo médico** → Fase 4 |
@@ -139,7 +139,7 @@ Existen: `README.md`, `INSTRUCCIONES.md`, `docs/DESIGN.md`, `docs/DATABASE.md` y
 9. **Mediciones manuales persistentes** (`eva.physicalManual`). — verificado en navegador (guardar → recargar → se conserva).
 10. **Expresión regular del panel mensual** corregida. — verificado (acepta 2026-11, rechaza 2026-13).
 
-Además: reloj inyectable (`store.Now`) para probar el escalamiento de 30 s sin esperar, y **CI** (`.github/workflows/ci.yml`): `go vet`, pruebas, compilación sin cgo y revisión de sintaxis de todo el JavaScript; el detector de carreras corre como informativo.
+Además: reloj inyectable (`store.Now`) para probar el escalamiento de 30 s sin esperar, y **CI** (`.github/workflows/eva-go.yml`, el flujo existente del equipo, ampliado): `go vet`, pruebas, compilación sin cgo y revisión de sintaxis de todo el JavaScript; el detector de carreras corre como informativo.
 
 ## 6. Dependencias
 

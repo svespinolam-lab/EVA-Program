@@ -208,6 +208,17 @@ func (s *Server) wsDevice(w http.ResponseWriter, r *http.Request) {
 			c.send(marshal(map[string]any{"type": "batch-ok", "n": n}))
 		case "queue":
 			s.Eng.SetQueued(c.crewID, env.N)
+		case "monthly-health":
+			var monthly model.Monthly
+			if json.Unmarshal(b, &monthly) == nil {
+				monthly.CrewID = c.crewID
+				if err := s.St.SaveMonthly(monthly); err != nil {
+					c.send(marshal(map[string]any{"type": "error", "error": err.Error()}))
+				} else {
+					s.Eng.Log("crew:"+c.crewID, c.crewID, "MONTHLY_HEALTH_SYNC", "Monthly clinical panel received for "+monthly.Month)
+					c.send(marshal(map[string]any{"type": "monthly-health-ok", "month": monthly.Month}))
+				}
+			}
 		case "readiness":
 			var rd model.Readiness
 			if json.Unmarshal(b, &rd) == nil {

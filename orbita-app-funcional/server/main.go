@@ -49,7 +49,7 @@ func initDB(){
  PRAGMA journal_mode=WAL;
  CREATE TABLE IF NOT EXISTS astronauts(id TEXT PRIMARY KEY,name TEXT NOT NULL,role TEXT,sex TEXT,base_hr REAL DEFAULT 70,base_spo2 REAL DEFAULT 98,base_temp REAL DEFAULT 36.8,base_hrv REAL DEFAULT 50,radiation_total REAL DEFAULT 0,vulnerability INTEGER DEFAULT 0, vulnerability_reason TEXT DEFAULT '');
  CREATE TABLE IF NOT EXISTS missions(id TEXT PRIMARY KEY,name TEXT,environment TEXT,start_at TEXT,end_at TEXT,status TEXT DEFAULT 'ACTIVE');
- CREATE TABLE IF NOT EXISTS telemetry(id INTEGER PRIMARY KEY AUTOINCREMENT,mission_id TEXT,astronaut_id TEXT,ts TEXT,hr REAL,spo2 REAL,temp REAL,resp REAL,hrv REAL,radiation REAL,effort TEXT,ipv INTEGER,level TEXT,reason TEXT,protocol TEXT);
+ CREATE TABLE IF NOT EXISTS telemetry(id INTEGER PRIMARY KEY AUTOINCREMENT,event_id TEXT UNIQUE,mission_id TEXT,astronaut_id TEXT,ts TEXT,hr REAL,spo2 REAL,temp REAL,resp REAL,hrv REAL,radiation REAL,effort TEXT,ipv INTEGER,level TEXT,reason TEXT,protocol TEXT);
  CREATE INDEX IF NOT EXISTS telemetry_lookup ON telemetry(mission_id,astronaut_id,ts);
  CREATE TABLE IF NOT EXISTS alerts(id INTEGER PRIMARY KEY AUTOINCREMENT,mission_id TEXT,astronaut_id TEXT,ts TEXT,level TEXT,code TEXT,message TEXT,reason TEXT,protocol TEXT,response TEXT DEFAULT 'PENDING',response_seconds INTEGER,escalated INTEGER DEFAULT 0);
  CREATE TABLE IF NOT EXISTS incidents(id INTEGER PRIMARY KEY AUTOINCREMENT,mission_id TEXT,astronaut_id TEXT,alert_id INTEGER,event_at TEXT,window_start TEXT,window_end TEXT,classification TEXT,first_deviation TEXT,readings_json TEXT);
@@ -95,7 +95,8 @@ func evaluate(r Reading) Status {
 func broadcast(v any){mu.Lock();defer mu.Unlock();for c:=range clients{c.SetWriteDeadline(time.Now().Add(2*time.Second));if err:=c.WriteJSON(v);err!=nil{c.Close();delete(clients,c)}}}
 func record(r Reading) (Status,error){
  if r.AstronautID==""||r.MissionID==""||r.HR<=0||r.SpO2<=0||r.Temp<=0{return Status{},http.ErrBodyNotAllowed}
- s:=evaluate(r);_,err:=db.Exec(`INSERT INTO telemetry(mission_id,astronaut_id,ts,hr,spo2,temp,resp,hrv,radiation,effort,ipv,level,reason,protocol) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,r.MissionID,r.AstronautID,s.Timestamp,r.HR,r.SpO2,r.Temp,r.Resp,r.HRV,r.Radiation,r.Effort,s.Score,s.Level,s.Reason,s.Protocol)
+ if r.EventID==""{r.EventID=r.AstronautID+"-"+time.Now().UTC().Format("20060102150405.000000000")}
+ s:=evaluate(r);_,err:=db.Exec(`INSERT OR IGNORE INTO telemetry(event_id,mission_id,astronaut_id,ts,hr,spo2,temp,resp,hrv,radiation,effort,ipv,level,reason,protocol) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,r.EventID,r.MissionID,r.AstronautID,s.Timestamp,r.HR,r.SpO2,r.Temp,r.Resp,r.HRV,r.Radiation,r.Effort,s.Score,s.Level,s.Reason,s.Protocol)
  if err!=nil{return s,err}
  mu.Lock();previous,hadPrevious:=latest[r.AstronautID];latest[r.AstronautID]=s;mu.Unlock()
  if (s.Level=="RISK"||s.Level=="EMERGENCY")&&(!hadPrevious||previous.Level!=s.Level){

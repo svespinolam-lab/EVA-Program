@@ -265,3 +265,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .pair-list { display: grid; gap: 6px; }
 .pair-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: var(--r-md); background: var(--surface-2); flex-wrap: wrap; }
 .pair-code { font-size: 44px; letter-spacing: 0.18em; text-align: center; color: var(--accent); margin: 8px 0 4px; font-variant-numeric: tabular-nums; }
+/* System view */
+.sys-new-user { gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.sys-new-user .input { min-width: 180px; flex: 1; }
+.sys-bad { color: var(--critical); font-weight: 600; }
+.bb-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.bb-filters .input { min-width: 180px; }

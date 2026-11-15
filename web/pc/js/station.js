@@ -299,7 +299,7 @@
   S.renderShell = function () { renderTop(); renderLink(); renderBadges(); renderAlarm(); renderFoot(); };
 
   /* ---------- Router ---------- */
-  var VIEWS = ['triage', 'premission', 'console', 'crew', 'reports', 'blackbox', 'simulator'];
+  var VIEWS = ['triage', 'premission', 'console', 'crew', 'reports', 'blackbox', 'system', 'simulator'];
   S.current = null;
   S.focusCrew = null;
   function route() {

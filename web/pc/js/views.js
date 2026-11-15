@@ -503,9 +503,21 @@
         '<p>Every reading is recorded continuously; every event is chained with SHA-256 so any later edit is detectable. Incidents freeze T−30 min … T+15 min.</p></div>' +
         '<div class="st-actions"><button type="button" class="btn btn--primary" id="bb-verify">' + icon('shield') + 'Verify integrity</button>' +
         '<button type="button" class="btn btn--secondary" id="bb-refresh">' + icon('refresh') + 'Refresh</button>' + '<button type="button" class="btn btn--secondary" id="bb-db-check">' + icon('database') + 'Check database</button></div></div>' +
-        '<div id="bb-result"></div><div class="tbl-wrap"><table class="tbl bb-table"><thead><tr><th>#</th><th>Time</th><th>Event</th><th>Crew</th><th>Event data</th><th>SHA-256</th></tr></thead><tbody id="bb-rows"><tr><td colspan="6" class="subtle">Loading…</td></tr></tbody></table></div>';
+        '<div id="bb-result"></div>' +
+        '<div class="bb-filters" role="search"><select class="input" id="bb-crew" aria-label="Filter by astronaut"><option value="">All crew</option>' +
+          (S.state.crew || []).map(function (c) { return '<option value="' + esc(c.id) + '">' + esc(c.role + ' · ' + c.name) + '</option>'; }).join('') + '</select>' +
+          '<select class="input" id="bb-kind" aria-label="Filter by event"><option value="">All events</option>' +
+          (S.bbKinds || []).map(function (k) { return '<option value="' + esc(k) + '">' + esc(S.human(k)) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="tbl-wrap"><table class="tbl bb-table"><thead><tr><th>#</th><th>Time</th><th>Event</th><th>Crew</th><th>Event data</th><th>SHA-256</th></tr></thead><tbody id="bb-rows"><tr><td colspan="6" class="subtle">Loading…</td></tr></tbody></table></div>';
       var load = function () {
-        S.api('GET', '/api/blackbox?limit=200').then(function (list) {
+        var crew = document.getElementById('bb-crew').value, kind = document.getElementById('bb-kind').value;
+        var q = '/api/blackbox?limit=200' + (crew ? '&crew=' + encodeURIComponent(crew) : '') + (kind ? '&kind=' + encodeURIComponent(kind) : '');
+        S.api('GET', q).then(function (list) {
+          // Event types seen so far feed the filter (kept across reloads)
+          var sel = document.getElementById('bb-kind'), have = {};
+          Array.prototype.forEach.call(sel.options, function (o) { have[o.value] = true; });
+          S.bbKinds = S.bbKinds || [];
+          list.forEach(function (e) { if (!have[e.kind]) { have[e.kind] = true; S.bbKinds.push(e.kind); sel.insertAdjacentHTML('beforeend', '<option value="' + esc(e.kind) + '">' + esc(S.human(e.kind)) + '</option>'); } });
           document.getElementById('bb-rows').innerHTML = list.map(function (e) {
             return '<tr><td class="mono">' + e.id + '</td><td class="mono">' + S.date(e.t) + ' ' + S.time(e.t) + '</td><td>' + esc(S.human(e.kind)) + '</td><td>' + esc(e.crewId || '—') + '</td>' +
               '<td><details class="bb-details"><summary>View details</summary><pre>' + esc(String(e.payload || '')) + '</pre></details></td><td class="hash bb-hash">' + esc(String(e.hash || '').slice(0, 16)) + '…</td></tr>';
@@ -513,6 +525,12 @@
         });
       };
       root.querySelector('#bb-refresh').addEventListener('click', load);
+      // The filter survives re-renders of the view
+      var f = S.bbFilter || (S.bbFilter = { crew: '', kind: '' });
+      root.querySelector('#bb-crew').value = f.crew;
+      root.querySelector('#bb-kind').value = f.kind;
+      root.querySelector('#bb-crew').addEventListener('change', function (e) { f.crew = e.target.value; load(); });
+      root.querySelector('#bb-kind').addEventListener('change', function (e) { f.kind = e.target.value; load(); });
       root.querySelector('#bb-db-check').addEventListener('click', function(){S.api('GET','/api/health/database').then(function(r){document.getElementById('bb-result').innerHTML='<p class="flag card" data-level="'+(r.ok?0:3)+'">'+icon(r.ok?'check':'octagon')+' SQLite '+esc(r.integrity||r.database)+' · '+esc(JSON.stringify(r.counts||{}))+'</p>';}).catch(function(e){S.toast('Database check failed: '+e.message,{icon:'triangle',level:3});});});
       root.querySelector('#bb-verify').addEventListener('click', function () {
         S.api('GET', '/api/blackbox/verify').then(function (r) {

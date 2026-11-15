@@ -9,6 +9,7 @@ Actualizado: 15 nov 2026. Repositorio: https://github.com/svespinolam-lab/EVA-Pr
 | 1 | `fase-1-auditoria` → `main` | Auditoría, seguridad crítica, privacidad, 15 pruebas, CI | Subida · CI verde · **PR por crear** |
 | 2 | `fase-4-backend` → `fase-1-auditoria` | Migraciones, roles, auditoría, emparejamiento, mensajes durables, respaldos, HTTPS, API | Subida · **PR por crear** |
 | 3 | `fase-2-mobile` → `fase-4-backend` | App: salud mental 8 secciones, 12 parámetros con historial, perfil, ciclo menstrual, análisis mensuales | Subida · **PR por crear** |
+| 4 | `fase-3-station` → `fase-2-mobile` | Consola: vista System (estado, sincronización, respaldos, usuarios, auditoría) y filtros de la caja negra | Subida · **PR por crear** |
 
 Detalle: `docs/AUDITORIA-FASE-1.md`, `docs/FASE-4.md`, `docs/FASE-2.md`, contratos `docs/API.md` y `docs/WEBSOCKET.md`.
 
@@ -28,7 +29,7 @@ Detalle: `docs/AUDITORIA-FASE-1.md`, `docs/FASE-4.md`, `docs/FASE-2.md`, contrat
 ## Qué falta (por fase del plan)
 
 - **Fase 2 (resto):** Bluetooth completo (lista de dispositivos, batería, reconexión), procedencia por métrica en lo enviado, variación de peso y ejercicio, abrir sin red (service worker), unificar clasificadores.
-- **Fase 3 · EVA Station:** pantallas para usuarios, respaldos, auditoría, crear misión/asignar tripulación y expedientes (la API ya existe); estado de BD y sensores en el dashboard; IPV configurable; alarma por nivel; reportes de alertas, telemetría, radiación e intervenciones.
+- **Fase 3 · EVA Station (resto, ver `docs/FASE-3.md`):** crear misión/asignar tripulación y editar expedientes desde la consola (API lista); IPV configurable; alarma por nivel; reportes de alertas, telemetría, radiación e intervenciones.
 - **Fase 5 · Simulador:** selector DEMO/SIMULATED/REAL, 12 sensores, escenarios faltantes (presión arterial, fatiga, duplicados, caída de red), 3 astronautas a la vez.
 - **Fase 6:** clase «pérdida de comunicación» en incidentes; perímetro sin GPS (ToF) con simulador claramente ficticio y documento de hardware.
 - **Fase 7:** demo de 22 pasos automatizada, pruebas de carga, documentación final, informe en 3 categorías.

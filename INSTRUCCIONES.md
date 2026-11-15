@@ -76,20 +76,35 @@ Opciones útiles:
 | `-web web` | Sirve las interfaces desde la carpeta `web` (para editarlas en vivo; se activa solo si ejecutas desde la raíz del proyecto) |
 | `-data otra\carpeta` | Dónde guardar la base de datos |
 | `-operator-token X` | Fija el token del operador (si no, se usa `EVA_OPERATOR_TOKEN` o se crea uno al azar en `data\operator.token`) |
+| `-https-port 8443` | Puerto HTTPS (cifrado). `0` lo apaga. Usa un certificado local autofirmado en `data\tls` (el navegador avisa la primera vez: compara la huella **TLS SHA-256** que imprime la ventana negra) o el tuyo con `-tls-cert`/`-tls-key` |
+| `-pairing open` | **Solo demo:** acepta teléfonos sin código de emparejamiento (por defecto `code`) |
+| `-backup-every 6h` / `-backup-keep 10` | Copia de seguridad verificada automática y cuántas conservar (en `data\backups`) |
+| `-create-user "Dra. Vega" -role surgeon` | Crea un usuario de consola (roles: `operator`, `surgeon`) e imprime su enlace personal una sola vez |
+| `-restore data\backups\eva-….db` | Restaura una copia verificada (con la estación **cerrada**); la base anterior se conserva como `….pre-restore-…` |
 
 ### 🔒 Acceso a la consola (seguridad)
 
 - **En la PC de la estación** la consola se abre sin contraseña: <http://localhost:8080> (o la IP de la propia PC).
 - **Desde otro dispositivo** (otra laptop, tablet o tu celular) la consola, la API, los reportes y las exportaciones están **bloqueados**: contienen el control de la misión y expedientes médicos. Para abrirla, usa una sola vez el **Operator link** que imprime la ventana negra (`/?operator=…`); queda guardado 12 h en ese navegador. No compartas ese enlace.
-- Los teléfonos de los exploradores **no necesitan nada**: `/app/` y el enlace por WebSocket siguen abiertos.
+- **Usuarios y roles:** además del operador (la PC y el *Operator link*), puedes crear usuarios personales con `-create-user`. Rol **operator**: todo. Rol **surgeon** (cirujano de vuelo): ver, expedientes, reportes y responder alertas, pero **no** controla la misión, el simulador, usuarios ni respaldos. Cada acción que cambia algo o lee datos clínicos queda en la **auditoría** (`/api/audit`).
+- Los teléfonos **deben emparejarse una vez** (paso 5): la estación solo acepta lecturas de un teléfono emparejado con su astronauta.
 - Una página web de otro sitio no puede enviar órdenes a la estación (protección CSRF) y los teléfonos ya no reciben los expedientes médicos de los demás tripulantes.
 
 ## 5. Enlazar el teléfono
 
 1. En el teléfono abre la dirección **Phones (Wi-Fi)** que mostró la consola (por ejemplo `http://192.168.137.1:8080/app/`). También aparece en la PC con el botón de señal (arriba a la derecha) o en **Simulator**.
-2. En la app: **≡ Settings → Station link** → elige quién lleva el teléfono (**Ana Ruiz · EV1**) → activa **Link**.
-3. En la PC, el triage mostrará **Phone linked · simulated data** para EV1 (o **· sensors** si las lecturas vienen de sensores reales). El traje virtual de esa persona se apaga solo: desde ese momento los datos vienen del teléfono.
-4. Toca el ícono de bocina en la app para activar la voz (el navegador lo exige).
+2. En la app: **≡ Settings → Station link** → elige quién lleva el teléfono (**Ana Ruiz · EV1**) → activa **Link**. El chip dirá **○ Pair with station**.
+3. **Emparejar (una sola vez):** en la PC abre **Simulator → Pair a phone → Pair EV1 · Ana Ruiz**. Aparece un código de 6 dígitos (vale 5 minutos y un solo uso). En el teléfono, en **Station link → Pairing**, escríbelo y toca **Pair**. El chip cambia a **● Station**. El teléfono guarda su llave; no tendrás que repetirlo salvo que lo revoques (**Revoke** en la misma pantalla) o cambies de astronauta.
+4. Si el teléfono estuvo sin conexión, al volver envía solo lo pendiente (sin duplicados) y recibe las instrucciones o alertas que se le enviaron mientras tanto, una sola vez.
+5. En la PC, el triage mostrará **Phone linked · simulated data** para EV1 (o **· sensors** si las lecturas vienen de sensores reales). El traje virtual de esa persona se apaga solo: desde ese momento los datos vienen del teléfono.
+6. Toca el ícono de bocina en la app para activar la voz (el navegador lo exige).
+
+### 💾 Copias de seguridad y restauración
+
+- La estación hace una **copia verificada** al arrancar (si la última tiene más de 6 h) y luego cada 6 h; conserva las 10 más recientes en `data\backups`. Cada copia se comprueba con `integrity_check` y con la cadena SHA-256 de la caja negra; si no pasa, se descarta.
+- Copia manual: `POST /api/backups` desde la PC (o desde la consola con un usuario **operator**).
+- Antes de **actualizar el esquema** de una base existente, la estación guarda automáticamente `eva-pre-migration-v<N>-….db`.
+- **Restaurar:** cierra la estación (ventana negra) y ejecuta `dist\eva-station.exe -restore data\backups\<archivo>.db`. Solo restaura copias verificadas y guarda la base anterior como `eva-station.db.pre-restore-…`.
 
 ## 6. Guion de la simulación (demo)
 

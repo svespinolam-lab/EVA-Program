@@ -66,7 +66,7 @@ func evaluate(r Reading) Status {
  db.QueryRow("SELECT base_hr,base_spo2,base_temp,base_hrv,vulnerability FROM astronauts WHERE id=?",r.AstronautID).Scan(&bHR,&bO2,&bT,&bHRV,&vuln)
  // Personal baseline: first 14 days establish adaptation; afterwards use a rolling 7-day window.
  var samples int
- db.QueryRow("SELECT COUNT(*) FROM telemetry WHERE astronaut_id=?",r.AstronautID).Scan(&samples)
+ db.QueryRow("SELECT COUNT(DISTINCT date(ts)) FROM telemetry WHERE astronaut_id=?",r.AstronautID).Scan(&samples)
  window:="-14 days"
  if samples>=14 { window="-7 days" }
  var n int
@@ -78,7 +78,7 @@ func evaluate(r Reading) Status {
  if r.SpO2<90 {score=max(score,98);reasons=append(reasons,"Critical oxygen saturation");protocol="Stop work. Check suit oxygen. Return to airlock."} else if r.SpO2<=92 {score=max(score,78);reasons=append(reasons,"Low oxygen saturation");protocol="Reduce workload and verify oxygen supply."}
  if r.Temp>=39 {score=max(score,95);reasons=append(reasons,"Critical temperature");protocol="Abort EVA and activate cooling protocol."} else if r.Temp>=38 {score=max(score,74);reasons=append(reasons,"Elevated temperature")}
  effort:=r.Effort;if effort==""{effort="MODERATE"}
- limit:=bHR+15;if effort=="MODERATE"{limit=bHR+30};if effort=="HIGH"{limit=bHR+55}
+ limit:=bHR+15;if effort=="REST"{limit=bHR*1.35};if effort=="MODERATE"{limit=bHR+30};if effort=="HIGH"{limit=bHR+55}
  if r.HR>165 || (r.HR>130&&effort=="REST"){score=max(score,93);reasons=append(reasons,"Severe heart-rate elevation");protocol="Stop activity and assess crew member."}else if r.HR>limit{score=max(score,73);reasons=append(reasons,"Heart rate above personal baseline")}
  if bHRV>0&&r.HRV>0&&r.HRV<bHRV*.65{score=min(100,score+12);reasons=append(reasons,"HRV decreased significantly")}
  level:="STABLE";if score>=90{level="EMERGENCY"}else if score>=70{level="RISK"}else if score>=40{level="VULNERABLE"}
@@ -128,10 +128,11 @@ func captureIncident(alertID int64, mission, astronaut string, event time.Time) 
 
 func main(){
  initDB()
+ http.HandleFunc("/app/",http.StripPrefix("/app/",http.FileServer(http.Dir("."))))
  http.HandleFunc("/",func(w http.ResponseWriter,r *http.Request){if r.URL.Path!="/" {http.NotFound(w,r);return};http.ServeFile(w,r,"dashboard/index.html")})
  http.HandleFunc("/ws/monitor",ws)
  http.HandleFunc("/api/health",func(w http.ResponseWriter,r *http.Request){json.NewEncoder(w).Encode(map[string]any{"status":"ok","offline_first":true,"service":"EVA mission station"})})
- http.HandleFunc("/api/premission",func(w http.ResponseWriter,r *http.Request){if r.Method!="POST"{http.Error(w,"POST required",405);return};var p SafeCheck;if json.NewDecoder(http.MaxBytesReader(w,r.Body,8192)).Decode(&p)!=nil||p.AstronautID==""||(p.TrafficLight!="GREEN"&&p.TrafficLight!="AMBER"&&p.TrafficLight!="RED"){http.Error(w,"Invalid safe pre-mission payload",400);return};p.Timestamp=time.Now().UTC().Format(time.RFC3339);_,e:=db.Exec("INSERT INTO premission_checks(astronaut_id,mission_id,ts,traffic_light,vulnerability,summary) VALUES(?,?,?,?,?,?)",p.AstronautID,p.MissionID,p.Timestamp,p.TrafficLight,p.Vulnerability,p.Summary);if e!=nil{http.Error(w,e.Error(),500);return};json.NewEncoder(w).Encode(map[string]any{"accepted":true,"private_diary_received":false})})
+ http.HandleFunc("/api/premission",func(w http.ResponseWriter,r *http.Request){if r.Method!="POST"{http.Error(w,"POST required",405);return};var p SafeCheck;if json.NewDecoder(http.MaxBytesReader(w,r.Body,8192)).Decode(&p)!=nil||p.AstronautID==""||(p.TrafficLight!="GREEN"&&p.TrafficLight!="AMBER"&&p.TrafficLight!="RED"){http.Error(w,"Invalid safe pre-mission payload",400);return};p.Timestamp=time.Now().UTC().Format(time.RFC3339);db.Exec("UPDATE astronauts SET vulnerability=?,vulnerability_reason=? WHERE id=?",p.Vulnerability,p.Summary,p.AstronautID);_,e:=db.Exec("INSERT INTO premission_checks(astronaut_id,mission_id,ts,traffic_light,vulnerability,summary) VALUES(?,?,?,?,?,?)",p.AstronautID,p.MissionID,p.Timestamp,p.TrafficLight,p.Vulnerability,p.Summary);if e!=nil{http.Error(w,e.Error(),500);return};json.NewEncoder(w).Encode(map[string]any{"accepted":true,"private_diary_received":false})})
  http.HandleFunc("/api/telemetry",func(w http.ResponseWriter,r *http.Request){if r.Method!="POST"{http.Error(w,"POST required",405);return};var x Reading;if json.NewDecoder(http.MaxBytesReader(w,r.Body,8192)).Decode(&x)!=nil{http.Error(w,"Invalid JSON",400);return};s,e:=record(x);if e!=nil{http.Error(w,e.Error(),400);return};broadcast(map[string]any{"type":"RANKING_UPDATED","astronautas":ranking(),"latest":s});json.NewEncoder(w).Encode(s)})
  http.HandleFunc("/api/triage",func(w http.ResponseWriter,r *http.Request){json.NewEncoder(w).Encode(ranking())})
  http.HandleFunc("/api/simulator",func(w http.ResponseWriter,r *http.Request){if r.Method!="POST"{http.Error(w,"POST required",405);return};var x Reading;if json.NewDecoder(r.Body).Decode(&x)!=nil{http.Error(w,"Invalid JSON",400);return};s,e:=record(x);if e!=nil{http.Error(w,e.Error(),400);return};broadcast(map[string]any{"type":"RANKING_UPDATED","astronautas":ranking(),"latest":s});json.NewEncoder(w).Encode(s)})

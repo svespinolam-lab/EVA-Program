@@ -1,0 +1,42 @@
+name: EVA CI
+
+on:
+  push:
+    branches: [main, integracion-eva, "fase-*"]
+  pull_request:
+
+jobs:
+  station:
+    name: Station (Go) and front-ends (JS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Vet
+        run: go vet ./...
+      - name: Unit, persistence, security and WebSocket tests
+        run: go test -count=1 ./...
+      - name: Build the offline station binary (no cgo)
+        run: CGO_ENABLED=0 go build -trimpath -o eva-station ./cmd/eva-station
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Syntax-check phone app, console and shared JavaScript
+        run: |
+          set -e
+          for f in web/app/js/*.js web/app/js/*/*.js web/pc/js/*.js web/shared/js/*.js tools/*.mjs; do
+            node --check "$f"
+          done
+
+  race:
+    name: Race detector (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -race -count=1 ./...

@@ -10,7 +10,6 @@ EVA is an integrated astronaut health monitoring ecosystem designed to support c
 - **Technical documentation:** See the `/docs` directory.
 - **Architecture:** See `docs/EVA_Architecture.pdf`.
 - **Application screenshots:** See `/demo/screenshots`.
-- **Demonstration video:** [INSERT PUBLIC VIDEO LINK]
 - **Installation instructions:** See `docs/Installation_Guide.pdf`.
 
 ## System components

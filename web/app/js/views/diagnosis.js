@@ -620,7 +620,8 @@
     destroy();
     var member = App.crew.selected();
     st = { root: root, memberId: member ? member.id : null, iv: false, sig: {}, timer: null, tlTimer: null };
-    root.addEventListener('click', onClick);\n    root.addEventListener('change', savePhysicalInput);
+    root.addEventListener('click', onClick);
+    root.addEventListener('change', savePhysicalInput);
     if (!member) {
       root.innerHTML = App.ui.empty('users', 'No crew configured.');
       return;
@@ -634,7 +635,8 @@
       root.innerHTML =
         heroHTML(member, a) +
         mentalSectionHTML(member, a) +
-        groupSectionHTML('bio', member, a, data) +\n        physicalSectionHTML(member, data) +
+        groupSectionHTML('bio', member, a, data) +
+        physicalSectionHTML(member, data) +
         groupSectionHTML('suit', member, a, data) +
         logSectionHTML(member);
       st.sig.findings = findingsSig(a);
@@ -654,11 +656,13 @@
       var a = p.assessment || getRisk(member.id);
       if (!st.iv) {
         updateHero(a);
-        updateGroups(member, a, getData(member.id));\n        var ph = q('#dx-physical-complete'); if (ph) setHTML(ph, physicalSectionHTML(member, getData(member.id)));
+        updateGroups(member, a, getData(member.id));
+        var ph = q('#dx-physical-complete'); if (ph) setHTML(ph, physicalSectionHTML(member, getData(member.id)));
       }
       updateMental(member, a);
     } else if ((evt === 'telemetry' || evt === 'sensor') && mine && !st.iv) {
-      updateGroups(member, getRisk(member.id), getData(member.id));\n      var ph = q('#dx-physical-complete'); if (ph) setHTML(ph, physicalSectionHTML(member, getData(member.id)));
+      updateGroups(member, getRisk(member.id), getData(member.id));
+      var ph = q('#dx-physical-complete'); if (ph) setHTML(ph, physicalSectionHTML(member, getData(member.id)));
     } else if (evt === 'checkin' && mine) {
       updateMental(member, getRisk(member.id));
     } else if (evt === 'blackbox' && !st.iv) {
@@ -668,7 +672,8 @@
 
   function destroy() {
     if (!st) return;
-    st.root.removeEventListener('click', onClick);\n    st.root.removeEventListener('change', savePhysicalInput);
+    st.root.removeEventListener('click', onClick);
+    st.root.removeEventListener('change', savePhysicalInput);
     clearInterval(st.timer);
     clearTimeout(st.tlTimer);
     st = null;

@@ -511,7 +511,7 @@ func (s *Server) apiDatabaseHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	counts := map[string]int64{}
-	for _, table := range []string{"crew", "missions", "telemetry", "alerts", "incidents", "readiness", "oplog"} {
+	for _, table := range []string{"crew", "missions", "telemetry", "alerts", "incidents", "readiness", "monthly_health", "oplog"} {
 		var n int64
 		if err := s.St.R.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&n); err != nil {
 			writeJSON(w, 500, map[string]any{"ok": false, "database": "query_failed", "table": table, "error": err.Error()})

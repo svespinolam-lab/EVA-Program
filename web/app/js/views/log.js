@@ -447,7 +447,8 @@
     else if (action === 'connect') connect([btn.getAttribute('data-key')]);
     else if (action === 'connect-all') connectAll();
     else if (action === 'connect-suit') connect(SUIT.filter(isOff));
-    else if (action === 'measure-bp') measureBP();\n    else if (action === 'go-diagnosis') App.shell.go('diagnosis');
+    else if (action === 'measure-bp') measureBP();
+    else if (action === 'go-diagnosis') App.shell.go('diagnosis');
   }
 
   /* Arrow-key navigation for mood and energy options */

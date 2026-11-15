@@ -1,0 +1,5 @@
+eva_station.db
+eva_station.db-shm
+eva_station.db-wal
+*.exe
+*.test

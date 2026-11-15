@@ -913,8 +913,24 @@ textarea.input { min-height: 180px; padding: 12px; font-family: var(--font-mono)
 /* EVA · Log view (.reg-). Shared cards, sensors, tiles, and buttons use controls.css; colors use tokens.css. */
 
 /* Mental health */
-.reg-card { display: grid; gap: var(--sp-5); }
+.reg-card { display: grid; gap: var(--sp-3); min-width: 0; }
 .reg-card .group + .group { margin-top: 0; }   /* Spacing comes from gap */
+
+.reg-checkin-time { font-size: var(--fs-sm); color: var(--text-3); overflow-wrap: anywhere; }
+.reg-checkin-status { display: flex; align-items: center; gap: var(--sp-2); color: var(--lvl); font-weight: 600; }
+.reg-checkin-light { width: 12px; height: 12px; flex: none; border-radius: 50%; background: var(--lvl); }
+.reg-wizard { display: grid; gap: var(--sp-4); min-width: 0; overflow-wrap: anywhere; }
+.reg-wizard > * { min-width: 0; }
+.reg-wizard-question { font-size: var(--fs-lg); }
+.reg-wizard .segmented { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
+.reg-wizard .segmented__opt { min-height: 52px; padding: var(--sp-3); text-align: center; }
+.reg-wizard .segmented__opt[aria-checked="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
+.reg-wizard-nav { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3); }
+.reg-wizard .btn, .reg-card .btn { min-height: var(--tap); white-space: normal; }
+.reg-wizard .stepper__btn { flex: 0 0 var(--tap); min-height: var(--tap); }
+.reg-wizard .stepper__value { text-align: center; }
+.reg-wizard-note, .reg-wizard-help { font-size: var(--fs-sm); color: var(--text-2); }
+.reg-support { padding: var(--sp-4); background: var(--surface-2); border-radius: var(--r-md); }
 
 .reg-note {
   display: flex; align-items: flex-start; gap: var(--sp-2);
@@ -1220,6 +1236,19 @@ textarea.input { min-height: 180px; padding: 12px; font-family: var(--font-mono)
 
 .dx-bp-inputs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-2); }
 .dx-physical-notice .btn { margin-top:10px; }
+/* Dated history of each physical parameter (App.measurements) */
+.dx-hist { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-sm); color: var(--text-2); margin: 2px 0 6px; }
+.dx-light { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.dx-light::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); }
+.dx-light[data-light="green"]::before { background: var(--ok); }
+.dx-light[data-light="yellow"]::before { background: var(--caution); }
+.dx-light[data-light="red"]::before { background: var(--critical); }
+.dx-src { padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-strong); font-size: var(--fs-xs); }
+.dx-src[data-src="demo"] { border-style: dashed; color: var(--caution); border-color: var(--caution); }
+.dx-src[data-src="device"] { color: var(--ok); border-color: var(--ok); }
+.dx-7d { width: 72px; height: 20px; fill: var(--accent); }
+.dx-physical-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.dx-labs-title { margin-top: var(--sp-4); }
 
 </style>
 <style>/* css/views/profile.css */
@@ -1729,6 +1758,8 @@ App.config = {
     destination: 'Moon',                       // 'Moon' or 'Mars'
     site: 'Shackleton crater · south pole',
     evaNumber: 2,
+    plannedH: 6,                               // Planned EVA duration (hours); the station value wins when linked
+    durationDays: 30,                          // Planned surface mission duration (days)
     earthDelay: { Moon: '1.3 s', Mars: '4–24 min' },   // One-way signal delay to Earth
   },
 
@@ -1743,6 +1774,8 @@ App.config = {
         medication: 'None',
         surgeries: 'Appendectomy (2009)',
         evaHours: 21,
+        supplements: 'Vitamin D 1000 IU daily',
+        contacts: [{ name: 'Example contact A', relation: 'Partner', channel: 'Ground relay · mission control' }],   // Example data: replace with the real contacts
       },
       baseline: { hr: 62, bpSys: 116, bpDia: 74, spo2: 98, temp: 36.6, rr: 14, hrv: 58, weight: 61, height: 167, vo2max: 46, measuredAt: '2026-10-28' },
     },
@@ -1755,6 +1788,8 @@ App.config = {
         medication: 'Losartan 25 mg daily',
         surgeries: 'None',
         evaHours: 34,
+        supplements: 'Vitamin D 1000 IU daily · omega-3',
+        contacts: [{ name: 'Example contact B', relation: 'Sister', channel: 'Ground relay · mission control' }],   // Example data: replace with the real contacts
       },
       baseline: { hr: 68, bpSys: 124, bpDia: 80, spo2: 97, temp: 36.7, rr: 15, hrv: 48, weight: 78, height: 178, vo2max: 42, measuredAt: '2026-10-28' },
     },
@@ -1767,6 +1802,8 @@ App.config = {
         medication: 'None',
         surgeries: 'Refractive surgery (2016)',
         evaHours: 12,
+        supplements: 'Vitamin D 1000 IU daily',
+        contacts: [{ name: 'Example contact C', relation: 'Parent', channel: 'Ground relay · mission control' }],   // Example data: replace with the real contacts
       },
       baseline: { hr: 64, bpSys: 112, bpDia: 72, spo2: 98, temp: 36.5, rr: 13, hrv: 62, weight: 64, height: 170, vo2max: 44, measuredAt: '2026-10-28' },
     },
@@ -2475,11 +2512,10 @@ App.config = {
     };
     LIVE_KEYS.forEach(function (k) { sim.sensors[k] = 'disconnected'; sim.hist[k] = []; });
 
-    // Blood pressure measured 20 minutes ago near baseline
-    var sys = Math.round((b.bpSys || 120) + 2 + gauss() * 2);
-    var dia = Math.round((b.bpDia || 78) + 1 + gauss() * 1.5);
-    sim.bp = { bpSys: sys, bpDia: dia, bpAt: Date.now() - 20 * 60000 };
-    sim.hist.bp = [sys];
+    // No blood pressure until a cuff or a manual entry provides one (an
+    // invented "20 minutes ago" reading used to be shown as if real).
+    sim.bp = null;
+    sim.hist.bp = [];
     return sim;
   }
 
@@ -2602,6 +2638,8 @@ App.config = {
     Object.keys(sims).forEach(function (id) {
       step(sims[id], dt, false);
       App.bus.emit('telemetry', { crewId: id, data: api.latest(id) });
+      // 7-day trend of the continuous parameters (one point / 5 min, tagged demo or device)
+      if (App.measurements) App.measurements.sampleLive(id, api.latest(id));
     });
     Object.keys(remotes).forEach(function (id) {
       var fresh = remoteFresh(id);
@@ -3110,9 +3148,33 @@ App.config = {
     var since = ck.at || Date.now();
     var shortSleep = typeof ck.sleepMin === 'number' && ck.sleepMin < M.sleep.recommendedMin;
     function add(key, level, label, message, vText) {
+      level = Math.max(0, Math.min(2, level));
       out.push({ key: key, group: 'mental', label: label, short: label, level: level, value: null, valueText: vText,
         direction: null, trend: null, message: message, shortMessage: lowerFirst(message), advice: adviceFor(key, null, level),
         since: since, depth: 0.5 });
+    }
+    if (App.mental && App.mental.evaluate) {
+      var result = App.mental.evaluate(ck);
+      var normalized = App.mental.fromLegacy(ck);
+      result.sections.forEach(function (s, i) {
+        if (!s.level) return;
+        var def = App.mental.SECTIONS[i];
+        add(s.id, s.level, def.title, def.title + ' needs attention', def.options[s.value].label);
+        out[out.length - 1].advice = 'Allow time for support and talk with the crew medical officer if needed.';
+      });
+      if (result.flags.indexOf('SHORT_SLEEP') >= 0) {
+        add('sleep', normalized.sleepMin < 300 ? 2 : 1, M.sleep.label,
+          normalized.sleepMin < 300 ? 'Very short sleep' : 'Insufficient sleep', App.fmt.minutes(normalized.sleepMin));
+      }
+      if (result.flags.indexOf('POOR_SLEEP') >= 0) add('sleepQuality', 1, 'Sleep quality', 'Poor sleep quality', 'Poor');
+      if (result.level === 2 && !out.some(function (f) { return f.level === 2; })) {
+        add('mental', 2, 'Daily check-in', 'Several check-in concerns', '');
+        out[out.length - 1].advice = 'Talk with the crew medical officer and allow time for rest and support.';
+      }
+      out.forEach(function (f) {
+        if (f.key === 'sleepQuality') f.advice = adviceFor('sleep', null, f.level);
+      });
+      return out;
     }
     if (ck.mood === 0) add('mood', 1, M.mood.label, 'Low mood', M.mood.options[0]);
     if (ck.energy === 0) add('energy', 1, M.energy.label, 'Low energy', M.energy.options[0]);
@@ -4265,6 +4327,8 @@ App.config = {
     var item = { type: 'telemetry', crewId: crewId(), seq: ++seq, t: Date.now(), source: event.data.source || 'virtual' };
     App.storage.set('linkSeq', seq);
     FIELDS.forEach(function (k) { if (Number.isFinite(event.data[k])) item[k] = event.data[k]; });
+    // Private cycle module: only anonymous threshold offsets leave the phone (never phase, dates or symptoms)
+    if (App.cycle && App.cycle.isEnabled()) { var adj = App.cycle.adjustments(item.t); if (adj.temp || adj.hr) item.cal = { temp: adj.temp, hr: adj.hr }; }
     outbox.push(item);
     if (outbox.length > 20000) outbox.splice(0, outbox.length - 20000);
     persist();
@@ -4377,9 +4441,399 @@ App.config = {
 })();
 
 </script>
+<script>/* js/engine/measurements.js */
+/* EVA · Physical measurements store: the 12 physical parameters with value,
+   unit, date/time, source and a 7-day history, kept on this phone.
+
+   Records: App.storage 'measurements' = { crewId: { key: [ {v, at, src, dev?, x?} ] } }
+     v   number (blood pressure: systolic; x.dia = diastolic)
+     at  Unix ms of the measurement
+     src 'manual' | 'device' (paired hardware) | 'demo' (simulated: never real)
+   Kept: last 30 days and at most 500 records per parameter.
+
+   Traffic light: parameters that have thresholds in config.js (hr, hrv, bp,
+   spo2, temp, rr) use the app's single classifier App.levels.classify
+   (level 0 green, 1 yellow, 2-3 red), so the card never disagrees with the
+   risk engine. The others use the documented ranges below (green / yellow,
+   anything else red); weight uses the change versus the personal baseline. */
+(function () {
+  'use strict';
+  var App = window.App = window.App || {};
+  var STORE = 'measurements', DAY = 864e5, KEEP = 30 * DAY, MAX = 500, LIVE_EVERY = 5 * 60000;
+
+  var LIVE = ['hr', 'hrv', 'spo2', 'temp', 'rr'];
+  var REQUIRED12 = ['hr', 'hrv', 'bp', 'orthostatic', 'spo2', 'temp', 'rr', 'glucose', 'sleep', 'weight', 'hydration', 'radiationMonth'];
+  // plausible: values outside are rejected as input errors.
+  // green / yellow: [min, max] ranges for parameters without config thresholds.
+  var PARAMS = {
+    hr:             { unit: 'bpm',      plausible: [25, 230] },
+    hrv:            { unit: 'ms',       plausible: [5, 300] },
+    bp:             { unit: 'mmHg',     plausible: [60, 260], dia: [30, 160] },
+    orthostatic:    { unit: 'mmHg',     plausible: [-40, 80],  green: [-40, 9],  yellow: [-40, 19] },  // systolic drop on standing; >= 20 = red
+    spo2:           { unit: '%',        plausible: [50, 100] },
+    temp:           { unit: '°C',       plausible: [30, 43] },
+    rr:             { unit: 'rpm',      plausible: [3, 70] },
+    glucose:        { unit: 'mg/dL',    plausible: [20, 600],  green: [70, 99],  yellow: [60, 125] },  // fasting
+    sleep:          { unit: 'h',        plausible: [0, 16],    green: [7, 9.5],  yellow: [6, 11] },
+    weight:         { unit: 'kg',       plausible: [30, 250] },                                       // vs baseline: <2 % green, <5 % yellow
+    hydration:      { unit: '1–8',      plausible: [1, 8],     green: [1, 3],    yellow: [4, 5] },     // urine colour scale
+    radiationMonth: { unit: 'mSv',      plausible: [0, 1000],  green: [0, 30],   yellow: [0, 50] },    // cumulative this month
+  };
+  var CONFIG_LIGHT = { hr: 'hr', hrv: 'hrv', bp: 'bp', spo2: 'spo2', temp: 'temp', rr: 'rr' };
+
+  function now() { return Date.now(); }
+  function load() { var d = App.storage && App.storage.get(STORE, {}); return d && typeof d === 'object' ? d : {}; }
+  function save(d) { if (App.storage) App.storage.set(STORE, d); }
+  function list(d, crewId, key) { d[crewId] = d[crewId] || {}; d[crewId][key] = d[crewId][key] || []; return d[crewId][key]; }
+  function inRange(v, r) { return r && v >= r[0] && v <= r[1]; }
+  function dayKey(t) { var d = new Date(t); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+
+  /* add: value is a number, or {sys, dia} for blood pressure. */
+  function add(crewId, key, value, meta) {
+    var p = PARAMS[key];
+    meta = meta || {};
+    if (!p || !crewId) return { ok: false, error: 'Unknown parameter' };
+    var v = value, x = null;
+    if (key === 'bp') {
+      v = value && Number(value.sys);
+      var dia = value && Number(value.dia);
+      if (!Number.isFinite(dia) || !inRange(dia, p.dia)) return { ok: false, error: 'Diastolic must be ' + p.dia[0] + '–' + p.dia[1] + ' mmHg' };
+      if (dia >= v) return { ok: false, error: 'Diastolic must be lower than systolic' };
+      x = { dia: dia };
+    }
+    v = Number(v);
+    if (!Number.isFinite(v) || !inRange(v, p.plausible)) return { ok: false, error: 'Value must be ' + p.plausible[0] + '–' + p.plausible[1] + ' ' + p.unit };
+    var src = meta.source === 'device' || meta.source === 'demo' ? meta.source : 'manual';
+    var rec = { v: v, at: Number(meta.at) || now(), src: src };
+    if (meta.device) rec.dev = String(meta.device).slice(0, 40);
+    if (x || meta.extra) rec.x = Object.assign({}, meta.extra || {}, x || {});
+    var d = load(), arr = list(d, crewId, key);
+    arr.push(rec);
+    arr.sort(function (a, b) { return a.at - b.at; });
+    var cut = now() - KEEP;
+    while (arr.length && (arr[0].at < cut || arr.length > MAX)) arr.shift();
+    save(d);
+    return { ok: true, record: rec };
+  }
+
+  function history(crewId, key, days) {
+    var arr = ((load()[crewId] || {})[key]) || [];
+    var from = now() - (days || 7) * DAY;
+    return arr.filter(function (r) { return r.at >= from; });
+  }
+  function latest(crewId, key) { var h = ((load()[crewId] || {})[key]) || []; return h.length ? h[h.length - 1] : null; }
+
+  /* 7 calendar days (oldest first): mean for continuous parameters, last value otherwise; null = no data. */
+  function daily(crewId, key, days) {
+    days = days || 7;
+    var out = [], recs = history(crewId, key, days + 1);
+    for (var i = days - 1; i >= 0; i--) {
+      var day = dayKey(now() - i * DAY);
+      var ofDay = recs.filter(function (r) { return dayKey(r.at) === day; });
+      var v = null;
+      if (ofDay.length) {
+        v = LIVE.indexOf(key) >= 0 ? ofDay.reduce(function (s, r) { return s + r.v; }, 0) / ofDay.length : ofDay[ofDay.length - 1].v;
+      }
+      out.push({ day: day, v: v });
+    }
+    return out;
+  }
+
+  function baseline(crewId, key) {
+    var m = App.crew && App.crew.byId ? App.crew.byId(crewId) : null;
+    var b = (m && m.baseline) || {};
+    var map = { hr: b.hr, hrv: b.hrv, bp: b.bpSys, spo2: b.spo2, temp: b.temp, rr: b.rr, weight: b.weight };
+    return Number.isFinite(map[key]) ? map[key] : null;
+  }
+
+  /* 'green' | 'yellow' | 'red' | null */
+  function light(key, value, crewId) {
+    if (!Number.isFinite(value)) return null;
+    if (CONFIG_LIGHT[key] && App.levels && App.levels.classify) {
+      var lv = App.levels.classify(CONFIG_LIGHT[key], value);
+      return lv === 0 ? 'green' : lv === 1 ? 'yellow' : lv >= 2 ? 'red' : null;
+    }
+    if (key === 'weight') {
+      var b = crewId ? baseline(crewId, 'weight') : null;
+      if (!b) return null;
+      var pct = Math.abs(value - b) / b * 100;
+      return pct < 2 ? 'green' : pct < 5 ? 'yellow' : 'red';
+    }
+    var p = PARAMS[key];
+    if (!p || !p.green) return null;
+    return inRange(value, p.green) ? 'green' : inRange(value, p.yellow) ? 'yellow' : 'red';
+  }
+
+  /* Continuous parameters get a point every 5 minutes, tagged by provenance. */
+  var lastLive = {};
+  function sampleLive(crewId, data) {
+    if (!crewId || !data) return 0;
+    var t = Number(data.t) || now();
+    if (lastLive[crewId] && t - lastLive[crewId] < LIVE_EVERY) return 0;
+    lastLive[crewId] = t;
+    var n = 0;
+    LIVE.forEach(function (k) {
+      if (!Number.isFinite(data[k])) return;
+      var hw = !!(App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId, k));
+      if (add(crewId, k, data[k], { source: hw ? 'device' : 'demo', at: t }).ok) n++;
+    });
+    return n;
+  }
+
+  /* One-time import of the earlier manual values (App.store 'physicalManual'). */
+  function migrate() {
+    if (!App.storage || App.storage.get('measurementsMigrated', false)) return 0;
+    var old = (App.store && App.store.get('physicalManual')) || {}, n = 0;
+    Object.keys(old).forEach(function (crewId) {
+      var row = old[crewId] || {};
+      Object.keys(row).forEach(function (k) {
+        if (k === 'bpSys' || k === 'bpDia' || k === 'bpAt' || row[k] == null) return;
+        if (PARAMS[k] && add(crewId, k, row[k], { source: 'manual' }).ok) n++;
+      });
+      if (row.bpSys != null && row.bpDia != null && add(crewId, 'bp', { sys: row.bpSys, dia: row.bpDia }, { source: 'manual', at: row.bpAt }).ok) n++;
+    });
+    App.storage.set('measurementsMigrated', true);
+    return n;
+  }
+
+  App.measurements = {
+    PARAMS: PARAMS, REQUIRED12: REQUIRED12,
+    add: add, latest: latest, history: history, daily: daily, light: light, baseline: baseline,
+    sampleLive: sampleLive, migrate: migrate,
+  };
+  try { migrate(); } catch (e) { /* storage unavailable: nothing to import */ }
+})();
+
+</script>
+<script>/* js/engine/mental.js */
+/* EVA · Private daily check-in. These are check-in rules, not a diagnosis.
+ * Rule                                      | Section level | Overall level / flag
+ * Section answer 0 (good) or 1 (middle)       | 0             | No flag
+ * Section answer 2 (poor)                    | 1             | At least 1 / section flag
+ * Three or more poor sections               | Unchanged     | 2
+ * Sleep below 300 min (5 h)                  | N/A           | 2 / SHORT_SLEEP
+ * Sleep 300 to below 420 min (7 h)           | N/A           | At least 1 / SHORT_SLEEP
+ * Sleep at least 420 min; quality 0 or 1     | N/A           | No additional flag
+ * Sleep quality 2 (Poor)                    | N/A           | At least 1 / POOR_SLEEP
+ * Missing/invalid answer or sleep           | null / 0      | Ignored; summary says incomplete
+ * Personal safety (0 Yes, 1 Not sure, 2 No) | Not evaluated | Phone support only; no score/flag
+ * Overall = maximum applicable level, always 0..2. Flags follow section order, then sleep.
+ *
+ * Legacy mood: 0 Low, 1 Steady, 2 Good; energy: 0 Low, 1 Medium, 2 High.
+ * New answers run good to poor: new = 2 - legacy, legacy = 2 - new.
+ * fromLegacy() copies known fields, prefers valid nested answers, and fills only
+ * missing mood/energy from legacy fields. Other missing answers stay null.
+ * toLegacy() is a whitelist projection: mood, energy, sleepMin, at, example.
+ * It NEVER copies safety, answers, or quality. Safety cannot affect either
+ * evaluation or this legacy projection (including summaries and flags).
+ */
+(function () {
+  'use strict';
+  var App = window.App = window.App || {};
+  function options(labels) {
+    return labels.map(function (label, value) { return { label: label, value: value }; });
+  }
+  function section(id, title, question, labels, flag) {
+    return { id: id, title: title, question: question, options: options(labels), flag: flag };
+  }
+  var SECTIONS = [
+    section('mood', 'Mood', 'How are you feeling today?', ['Good', 'Steady', 'Low'], 'LOW_MOOD'),
+    section('energy', 'Energy and fatigue', 'How much energy do you have today?', ['High', 'Medium', 'Low'], 'FATIGUE'),
+    section('stress', 'Stress and anxiety', 'How manageable do worries feel today?', ['Manageable', 'Some strain', 'Overwhelming'], 'STRESS'),
+    section('interest', 'Interest and drive', 'How interested do you feel in your usual activities?', ['Interested', 'Less interested', 'Little interest'], 'APATHY'),
+    section('attention', 'Attention', 'How easy is it to focus today?', ['Easy', 'Some effort', 'Difficult'], 'ATTENTION'),
+    section('team', 'Team and connection', 'How connected do you feel to your crew?', ['Connected', 'Some distance', 'Disconnected'], 'ISOLATION'),
+    section('lonely', 'Loneliness and homesickness', 'How much are loneliness or missing home weighing on you?', ['Very little', 'Somewhat', 'A lot'], 'LONELINESS'),
+    section('morale', 'Motivation and morale', 'How motivated do you feel for the day ahead?', ['Motivated', 'Somewhat motivated', 'Little motivation'], 'LOW_MORALE')
+  ];
+  var sleepConfig = App.config && App.config.mental && App.config.mental.sleep;
+  var SLEEP = {
+    title: 'Sleep', question: 'How did you sleep?',
+    hours: { field: 'sleepMin', stepMin: 15, recommendedMin: 420,
+      defaultMin: sleepConfig ? sleepConfig.defaultMin : 435,
+      maxMin: sleepConfig ? sleepConfig.maxMin : 720 },
+    quality: { field: 'sleepQuality', question: 'How restful was your sleep?',
+      options: options(['Restful', 'Fair', 'Poor']) }
+  };
+  var SAFETY = {
+    title: 'Personal safety',
+    question: 'Right now, do you feel safe and able to carry on with your duties?',
+    options: options(['Yes', 'Not sure', 'No'])
+  };
+  function answer(v) { return v === 0 || v === 1 || v === 2 ? v : null; }
+  function minutes(v) { return typeof v === 'number' && isFinite(v) && v >= 0 ? v : null; }
+  function fromLegacy(checkin) {
+    var c = checkin || {}, answers = {}, source = c.answers || {};
+    SECTIONS.forEach(function (s) {
+      var v = answer(source[s.id]);
+      if (v === null && (s.id === 'mood' || s.id === 'energy') && answer(c[s.id]) !== null) v = 2 - c[s.id];
+      answers[s.id] = v;
+    });
+    return { answers: answers, sleepMin: minutes(c.sleepMin), sleepQuality: answer(c.sleepQuality),
+      safety: answer(c.safety), at: c.at, example: c.example === true };
+  }
+  function toLegacy(checkin) {
+    var c = fromLegacy(checkin);
+    return { mood: c.answers.mood === null ? null : 2 - c.answers.mood,
+      energy: c.answers.energy === null ? null : 2 - c.answers.energy,
+      sleepMin: c.sleepMin, at: c.at, example: c.example };
+  }
+  function evaluate(checkin) {
+    var c = fromLegacy(checkin), flags = [], poor = 0, level = 0, missing = false;
+    var sections = SECTIONS.map(function (s) {
+      var v = c.answers[s.id];
+      if (v === null) missing = true;
+      if (v === 2) { poor++; flags.push(s.flag); }
+      return { id: s.id, value: v, level: v === 2 ? 1 : 0 };
+    });
+    level = poor >= 3 ? 2 : poor ? 1 : 0;
+    if (c.sleepMin === null || c.sleepQuality === null) missing = true;
+    if (c.sleepMin !== null && c.sleepMin < SLEEP.hours.recommendedMin) {
+      flags.push('SHORT_SLEEP');
+      level = Math.max(level, c.sleepMin < 300 ? 2 : 1);
+    }
+    if (c.sleepQuality === 2) { flags.push('POOR_SLEEP'); level = Math.max(level, 1); }
+    var summary = level === 2 ? 'Several concerns or very short sleep; talk with the crew medical officer.' :
+      level === 1 ? 'Some concerns flagged; allow time for rest and support.' : 'No concerns flagged in answered items.';
+    if (missing) summary += ' Check-in incomplete.';
+    return { sections: sections, level: level, flags: flags, summary: summary };
+  }
+  App.mental = { SECTIONS: SECTIONS, SLEEP: SLEEP, SAFETY: SAFETY,
+    evaluate: evaluate, toLegacy: toLegacy, fromLegacy: fromLegacy };
+})();
+
+</script>
+<script>/* js/engine/cycle.js */
+/* EVA · Optional, private menstrual-cycle module (off by default).
+   Button-based logging of period start, flow and symptoms; phase estimate;
+   interpretation adjustments. Everything stays on this phone (App.storage
+   "cycle"). The station only ever receives two anonymous offsets in the
+   telemetry field "cal" (never the phase, dates or symptoms):
+     luteal phase  ->  cal.temp = +0.3 (deg C), cal.hr = +3 (bpm)
+   (expected physiological rise; the station widens the alert thresholds by
+   that amount so a normal luteal rise is not flagged as fever or stress).
+   Phase from the last logged start and the mean cycle length (last 6
+   cycles between 21 and 40 days, default 28): day 1-5 menstrual, then
+   follicular, ovulation window = (length - 14) +/- 1, then luteal until the
+   next expected start + 7 days; later than that = unknown (no adjustment). */
+(function () {
+  'use strict';
+  var App = window.App = window.App || {};
+  var KEY = 'cycle', DAY = 864e5;
+  var SYMPTOMS = ['Cramps', 'Headache', 'Fatigue', 'Bloating', 'Mood changes', 'Breast tenderness'];
+  var FLOW = ['Light', 'Medium', 'Heavy'];
+
+  function empty() { return { enabled: false, starts: [], days: {} }; }
+  function load() { var d = App.storage && App.storage.get(KEY, null); return d && typeof d === 'object' && Array.isArray(d.starts) ? d : empty(); }
+  function save(d) { if (App.storage) App.storage.set(KEY, d); }
+  function dayKey(t) { var d = new Date(t); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function midnight(t) { var d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); }
+
+  function cycleLength(d) {
+    d = d || load();
+    var s = d.starts.slice().sort(function (a, b) { return a - b; }), gaps = [];
+    for (var i = 1; i < s.length; i++) {
+      var g = Math.round((s[i] - s[i - 1]) / DAY);
+      if (g >= 21 && g <= 40) gaps.push(g);
+    }
+    gaps = gaps.slice(-6);
+    return gaps.length ? Math.round(gaps.reduce(function (a, b) { return a + b; }, 0) / gaps.length) : 28;
+  }
+
+  function phase(t, d) {
+    d = d || load();
+    t = t || Date.now();
+    if (!d.enabled || !d.starts.length) return null;
+    var last = null;
+    d.starts.forEach(function (s) { if (s <= t && (last === null || s > last)) last = s; });
+    if (last === null) return null;
+    var day = Math.floor((midnight(t) - midnight(last)) / DAY) + 1, len = cycleLength(d), ov = len - 14;
+    if (day <= 5) return 'menstrual';
+    if (day < ov - 1) return 'follicular';
+    if (day <= ov + 1) return 'ovulatory';
+    if (day <= len + 7) return 'luteal';
+    return 'unknown';
+  }
+
+  function adjustments(t) {
+    return phase(t) === 'luteal' ? { temp: 0.3, hr: 3 } : { temp: 0, hr: 0 };
+  }
+
+  var api = {
+    SYMPTOMS: SYMPTOMS, FLOW: FLOW,
+    isEnabled: function () { return !!load().enabled; },
+    setEnabled: function (on) { var d = load(); d.enabled = !!on; save(d); },
+    erase: function () { save(empty()); },
+    logStart: function (t) {
+      var d = load(), m = midnight(t || Date.now());
+      if (d.starts.indexOf(m) < 0) d.starts.push(m);
+      d.starts.sort(function (a, b) { return a - b; });
+      d.starts = d.starts.slice(-24);
+      save(d);
+    },
+    logDay: function (t, entry) {
+      var d = load(), k = dayKey(t || Date.now()), cur = d.days[k] || {};
+      if (entry && FLOW.indexOf(entry.flow) >= 0) cur.flow = entry.flow;
+      if (entry && Array.isArray(entry.symptoms)) cur.symptoms = entry.symptoms.filter(function (s) { return SYMPTOMS.indexOf(s) >= 0; });
+      d.days[k] = cur;
+      var keys = Object.keys(d.days).sort();
+      while (keys.length > 120) delete d.days[keys.shift()];
+      save(d);
+    },
+    today: function () { return load().days[dayKey(Date.now())] || {}; },
+    phase: phase, cycleLength: cycleLength, adjustments: adjustments,
+  };
+
+  function chip(kind, v, pressed) {
+    return '<button type="button" class="chip" data-cyc="' + kind + '" data-v="' + v + '" aria-pressed="' + pressed + '">' + v + '</button>';
+  }
+  function sheetHTML() {
+    var d = load(), today = api.today(), p = phase();
+    var html = '<div class="cfg-sheet cycle"><div class="cfg-row"><span id="cyc-label">Track my cycle (private)</span>' +
+      '<button type="button" class="switch" role="switch" aria-labelledby="cyc-label" aria-checked="' + d.enabled + '" data-cyc="toggle"></button></div>' +
+      '<p class="muted">Off by default. Everything stays on this phone. The station only receives an anonymous adjustment of the temperature and heart-rate alert limits during the luteal phase.</p>';
+    if (d.enabled) {
+      html += '<p><b>Phase:</b> ' + (p ? p.charAt(0).toUpperCase() + p.slice(1) : 'log the start of your period') +
+        (p === 'luteal' ? ' · alert limits adjusted +0.3 °C and +3 bpm' : '') + ' · cycle ' + cycleLength(d) + ' days</p>' +
+        '<button type="button" class="btn btn--primary" data-cyc="start">Period started today</button>' +
+        '<p class="field__label">Flow today</p><div class="cyc-row">' +
+        FLOW.map(function (f) { return chip('flow', f, today.flow === f); }).join('') +
+        '</div><p class="field__label">Symptoms today</p><div class="cyc-row">' +
+        SYMPTOMS.map(function (s) { return chip('sym', s, (today.symptoms || []).indexOf(s) >= 0); }).join('') +
+        '</div><button type="button" class="btn btn--ghost" data-cyc="erase">Delete all cycle data</button>';
+    }
+    return html + '</div>';
+  }
+
+  api.openSheet = function () {
+    App.ui.sheet.open({
+      title: 'Cycle tracking', html: sheetHTML(),
+      onMount: function (b) {
+        b.addEventListener('click', function (e) {
+          var x = e.target.closest('[data-cyc]');
+          if (!x) return;
+          var a = x.getAttribute('data-cyc'), v = x.getAttribute('data-v'), t = api.today();
+          if (a === 'toggle') api.setEnabled(!api.isEnabled());
+          else if (a === 'start') { api.logStart(); App.ui.toast('Period start logged on this phone'); }
+          else if (a === 'flow') api.logDay(null, { flow: v });
+          else if (a === 'sym') {
+            var s = (t.symptoms || []).slice(), i = s.indexOf(v);
+            if (i >= 0) s.splice(i, 1); else s.push(v);
+            api.logDay(null, { symptoms: s });
+          } else if (a === 'erase') { api.erase(); App.ui.toast('Cycle data deleted from this phone'); }
+          var host = b.querySelector('.cycle');
+          if (host) host.outerHTML = sheetHTML();
+        });
+      },
+    });
+  };
+
+  App.cycle = api;
+})();
+</script>
 <!-- Views -->
 <script>/* js/views/log.js */
-/* EVA · Log for the selected crew member: mental check-in (mood, energy, sleep); live HR, SpO₂, temperature, and on-demand blood pressure; suit pressure, oxygen, CO₂, and battery. IV crew see only mental health. Styles: css/views/log.css (.reg-). */
+/* EVA · Log: private daily check-in wizard, biomedical sensors and suit telemetry. Styles: css/views/log.css (.reg-). */
 (function () {
   'use strict';
   var App = window.App = window.App || {};
@@ -4392,7 +4846,7 @@ App.config = {
 
   var root = null;      // Main element containing the view
   var crewId = null;    // Displayed crew member
-  var draft = null;     // Unsaved mental check-in: {mood, energy, sleepMin}
+  var wizard = null;    // Unsaved check-in and sheet owned by this view
   var pending = {};     // Connections or measurements started from this view
   var lastBpAt = null;  // Timestamp of the last rendered blood pressure reading
   var agoTimer = null;
@@ -4483,10 +4937,10 @@ App.config = {
   }
   function mentalHint() {
     var c = lastCheckin();
-    return c && c.at ? 'Last check-in: ' + App.fmt.ago(c.at) : 'No check-in yet';
+    return c && c.at ? (c.example ? 'Sample: ' : 'Last check-in: ') + App.fmt.date(c.at) + ' ' + hhmm(c.at) + ' · ' + App.fmt.ago(c.at) : 'No check-in yet';
   }
   function recommendedText() {
-    var rec = C.mental.sleep.recommendedMin;
+    var rec = App.mental.SLEEP.hours.recommendedMin;
     return rec % 60 ? App.fmt.minutes(rec) : (rec / 60) + ' h';
   }
   function sleepValueHTML(min) {
@@ -4494,86 +4948,174 @@ App.config = {
     return h + '<small> h </small>' + (mm < 10 ? '0' : '') + mm + '<small> min</small>';
   }
   function sleepHintHTML(min) {
-    if (min >= C.mental.sleep.recommendedMin) return '';
+    if (min >= App.mental.SLEEP.hours.recommendedMin) return '';
     return '<p class="reg-hint" data-level="1">' + App.icon('info') +
       '<span>Less than the recommended ' + esc(recommendedText()) + '. Fatigue is possible.</span></p>';
   }
 
   function mentalCard() {
     var c = lastCheckin();
-    var mm = C.mental;
-    var step = mm.sleep.stepMin;
-    var ready = draft.mood !== null && draft.energy !== null;
+    var result = c ? App.mental.evaluate(c) : null;
+    var label = result ? ['No concerns flagged', 'Caution', 'Needs attention'][result.level] : 'Not recorded';
+    if (result && result.summary.indexOf('Check-in incomplete.') >= 0) label += ' · partial check-in';
     return '<div class="card reg-card" id="reg-mental-card">' +
+      '<p class="reg-checkin-time" id="reg-checkin-time">' + esc(mentalHint()) + '</p>' +
+      '<p class="reg-checkin-status" data-level="' + (result ? result.level : 'off') + '">' +
+        '<span class="reg-checkin-light" aria-hidden="true"></span><span>' + esc(label) + '</span></p>' +
       (c && c.example
         ? '<p class="reg-note">' + App.icon('info') + '<span>Sample check-in. Save a new one to replace it.</span></p>'
         : '') +
-      '<div class="group"><p class="group__label">' + esc(mm.mood.label) + '</p>' +
-        App.ui.segmented({ name: 'reg-mood', label: mm.mood.label, options: mm.mood.options, icons: mm.mood.icons, value: draft.mood }) +
-      '</div>' +
-      '<div class="group"><p class="group__label">' + esc(mm.energy.label) + '</p>' +
-        App.ui.segmented({ name: 'reg-energy', label: mm.energy.label, options: mm.energy.options, icons: mm.energy.icons, value: draft.energy }) +
-      '</div>' +
-      '<div class="group">' +
-        '<p class="group__label"><span>' + esc(mm.sleep.label) + '</span><span class="subtle">Recommended ' + esc(recommendedText()) + '</span></p>' +
-        '<div class="stepper">' +
-          '<button type="button" class="stepper__btn" id="reg-sleep-minus" data-action="sleep" data-step="-1" aria-label="Subtract ' + step + ' minutes of sleep">' + App.icon('minus') + '</button>' +
-          '<output class="stepper__value" id="reg-sleep-value" aria-live="polite" aria-label="Hours of sleep">' + sleepValueHTML(draft.sleepMin) + '</output>' +
-          '<button type="button" class="stepper__btn" id="reg-sleep-plus" data-action="sleep" data-step="1" aria-label="Add ' + step + ' minutes of sleep">' + App.icon('plus') + '</button>' +
-        '</div>' +
-        '<div id="reg-sleep-hint">' + sleepHintHTML(draft.sleepMin) + '</div>' +
-      '</div>' +
-      '<div class="reg-actions">' +
-        '<button type="button" class="btn btn--primary btn--block" id="reg-save" data-action="save"' +
-          (ready ? '' : ' disabled aria-describedby="reg-save-help"') + '>' + App.icon('check') + 'Save check-in</button>' +
-        (ready ? '' : '<p class="reg-save-help" id="reg-save-help">Choose mood and energy to save.</p>') +
-      '</div>' +
+      '<button type="button" class="btn btn--primary btn--block" id="reg-start-checkin" data-action="start-checkin">Start daily check-in</button>' +
     '</div>';
   }
 
   function mentalSection() {
     return '<section class="section" id="reg-mental-section">' +
-      App.ui.sectionHead({ eyebrow: 'Check-in', title: 'Mental health', hint: mentalHint() }) +
+      App.ui.sectionHead({ eyebrow: 'Check-in', title: 'Mental health' }) +
       mentalCard() + '</section>';
   }
 
-  function selectSeg(btn) {
-    var name = btn.getAttribute('data-seg');
-    draft[name === 'reg-mood' ? 'mood' : 'energy'] = Number(btn.getAttribute('data-value'));
-    App.dom.$$('[data-seg="' + name + '"]', root).forEach(function (b) {
-      b.setAttribute('aria-checked', String(b === btn));
+  function stepValue(w) {
+    return w.step < 8 ? w.draft.answers[App.mental.SECTIONS[w.step].id] :
+      w.step === 8 ? w.draft.sleepQuality : w.draft.safety;
+  }
+  function choices(definition, value) {
+    return App.ui.segmented({ name: 'reg-answer', label: definition.question,
+      options: definition.options.map(function (o) { return o.label; }), value: value });
+  }
+  function wizardHTML(w) {
+    var M = App.mental, d = w.draft;
+    var def = w.step < 8 ? M.SECTIONS[w.step] : w.step === 8 ? M.SLEEP : M.SAFETY;
+    var content = '<p class="reg-wizard-question">' + esc(def.question) + '</p>';
+    if (w.step === 8) {
+      content += '<p class="subtle">Recommended ' + esc(recommendedText()) + '</p>' +
+        '<div class="stepper">' +
+          '<button type="button" class="stepper__btn" data-wizard="sleep-minus" aria-label="Subtract 15 minutes of sleep">' + App.icon('minus') + '</button>' +
+          '<output class="stepper__value" id="reg-sleep-value" aria-live="polite" aria-label="Hours of sleep">' + sleepValueHTML(d.sleepMin) + '</output>' +
+          '<button type="button" class="stepper__btn" data-wizard="sleep-plus" aria-label="Add 15 minutes of sleep">' + App.icon('plus') + '</button>' +
+        '</div><div id="reg-sleep-hint">' + sleepHintHTML(d.sleepMin) + '</div>' +
+        '<p>' + esc(M.SLEEP.quality.question) + '</p>' + choices(M.SLEEP.quality, d.sleepQuality);
+    } else {
+      content += choices(def, stepValue(w));
+    }
+    return '<div class="reg-wizard">' +
+      '<p class="eyebrow" aria-live="polite">' + (w.step + 1) + ' of 10</p>' +
+      '<h3 id="reg-step-title" tabindex="-1" autofocus>' + esc(def.title) + '</h3>' + content +
+      (w.step === 9 ? '<p class="reg-wizard-note">Your answer to this question stays on this phone and is not sent to the station.</p>' : '') +
+      '<p class="reg-wizard-help" id="reg-wizard-help">Choose an answer to continue.</p>' +
+      '<div class="reg-wizard-nav"><button type="button" class="btn btn--secondary" data-wizard="back"' + (w.step ? '' : ' disabled') + '>Back</button>' +
+      '<button type="button" class="btn btn--primary" data-wizard="next">' + (w.step === 9 ? 'Save check-in' : 'Next') + '</button></div></div>';
+  }
+  function syncWizard(w) {
+    var value = stepValue(w), ready = value !== null;
+    App.dom.$$('[data-seg="reg-answer"]', w.body).forEach(function (b, i) {
+      b.setAttribute('aria-checked', String(i === value));
+      b.tabIndex = i === (ready ? value : 0) ? 0 : -1;
     });
-    var save = $('#reg-save');
-    if (save && draft.mood !== null && draft.energy !== null) {
-      save.disabled = false;
-      save.removeAttribute('aria-describedby');
-      var help = $('#reg-save-help');
-      if (help) help.remove();
+    var next = w.body.querySelector('[data-wizard="next"]');
+    next.disabled = !ready;
+    if (ready) next.removeAttribute('aria-describedby');
+    else next.setAttribute('aria-describedby', 'reg-wizard-help');
+    w.body.querySelector('#reg-wizard-help').hidden = ready;
+    if (w.step === 8) {
+      w.body.querySelector('[data-wizard="sleep-minus"]').disabled = w.draft.sleepMin <= 0;
+      w.body.querySelector('[data-wizard="sleep-plus"]').disabled = w.draft.sleepMin >= App.mental.SLEEP.hours.maxMin;
     }
   }
-
-  function stepSleep(dir) {
-    var s = C.mental.sleep;
-    draft.sleepMin = Math.max(0, Math.min(s.maxMin, draft.sleepMin + dir * s.stepMin));
-    var out = $('#reg-sleep-value');
-    if (out) out.innerHTML = sleepValueHTML(draft.sleepMin);
-    var hint = $('#reg-sleep-hint');
-    if (hint) hint.innerHTML = sleepHintHTML(draft.sleepMin);
+  function renderStep(w) {
+    w.body.innerHTML = wizardHTML(w);
+    w.body.scrollTop = 0;
+    syncWizard(w);
+    w.body.querySelector('#reg-step-title').focus();
+  }
+  function chooseAnswer(w, button) {
+    var value = Number(button.getAttribute('data-value'));
+    if (w.step < 8) w.draft.answers[App.mental.SECTIONS[w.step].id] = value;
+    else if (w.step === 8) w.draft.sleepQuality = value;
+    else w.draft.safety = value;
+    syncWizard(w);
+  }
+  function startCheckin() {
+    var d = App.mental.fromLegacy(null);
+    // Each daily check-in starts unanswered, including personal safety.
+    d.sleepMin = App.mental.SLEEP.hours.defaultMin;
+    var w = { crewId: crewId, draft: d, step: 0, body: null };
+    wizard = w;
+    App.ui.sheet.open({ title: 'Daily check-in', html: wizardHTML(w),
+      onMount: function (body) {
+        w.body = body;
+        syncWizard(w);
+        body.addEventListener('click', function (e) {
+          if (wizard !== w || w.crewId !== crewId) return;
+          var b = e.target.closest('button');
+          if (!b || !body.contains(b) || b.disabled) return;
+          if (b.getAttribute('data-seg') === 'reg-answer') { chooseAnswer(w, b); return; }
+          var action = b.getAttribute('data-wizard');
+          if (action === 'back' && w.step > 0) { w.step--; renderStep(w); }
+          else if (action === 'next' && stepValue(w) !== null) {
+            if (w.step === 9) saveCheckin(w);
+            else { w.step++; renderStep(w); }
+          } else if (w.step === 8 && (action === 'sleep-minus' || action === 'sleep-plus')) {
+            var s = App.mental.SLEEP.hours;
+            d.sleepMin = Math.max(0, Math.min(s.maxMin, d.sleepMin + (action === 'sleep-minus' ? -s.stepMin : s.stepMin)));
+            body.querySelector('#reg-sleep-value').innerHTML = sleepValueHTML(d.sleepMin);
+            body.querySelector('#reg-sleep-hint').innerHTML = sleepHintHTML(d.sleepMin);
+            syncWizard(w);
+          }
+        });
+        body.addEventListener('keydown', function (e) {
+          var b = e.target.closest('[data-seg="reg-answer"]');
+          var dir = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+          if (!b || !dir || wizard !== w) return;
+          e.preventDefault();
+          var group = App.dom.$$('[data-seg="reg-answer"]', body);
+          var next = group[(group.indexOf(b) + dir + group.length) % group.length];
+          chooseAnswer(w, next);
+          next.focus();
+        });
+      },
+      onClose: function () { if (wizard === w) wizard = null; }
+    });
   }
 
-  function saveCheckin() {
-    if (draft.mood === null || draft.energy === null) return;
-    var checkin = { mood: draft.mood, energy: draft.energy, sleepMin: draft.sleepMin, at: Date.now() };
+  function showSupport() {
+    App.ui.sheet.open({ title: 'Support is available',
+      html: '<div class="reg-wizard reg-support"><h3 tabindex="-1" autofocus>Take a moment for support</h3>' +
+        '<p>This check-in is not a diagnosis. Talk now to the crew medical officer (IV) or flight surgeon about how you are feeling.</p>' +
+        '<p>Try a short breathing exercise: breathe in for 4 seconds, hold for 4 seconds, then breathe out for 6 seconds.</p>' +
+        '<p>Your answer stays on this phone. It is not sent to the station.</p>' +
+        '<button type="button" class="btn btn--primary btn--block" data-wizard="done">Done</button></div>',
+      onMount: function (body) {
+        body.querySelector('[data-wizard="done"]').addEventListener('click', function () { App.ui.sheet.close(); });
+      }
+    });
+  }
+  function saveCheckin(w) {
+    var d = w.draft;
+    if (wizard !== w || w.crewId !== crewId || d.safety === null || d.sleepQuality === null ||
+        App.mental.SECTIONS.some(function (s) { return d.answers[s.id] === null; })) return;
+    d.at = Date.now();
+    var checkin = App.mental.toLegacy(d);
+    checkin.answers = d.answers;
+    checkin.sleepQuality = d.sleepQuality;
+    checkin.safety = d.safety;
     var all = Object.assign({}, App.store.get('checkins') || {});
-    all[crewId] = checkin;
+    all[w.crewId] = checkin;
     App.store.set({ checkins: all });
-    App.bus.emit('checkin', { crewId: crewId, checkin: checkin });
+    // Preserve link.js's dailyLog/readiness update, exposing only the original fields
+    // on the bus. Risk reads the complete record from the local store.
+    App.bus.emit('checkin', { crewId: w.crewId, checkin: App.mental.toLegacy(checkin) });
+    App.ui.sheet.close();
     App.ui.toast('Check-in saved · ' + hhmm(checkin.at), { icon: 'check' });
     replaceKeepingFocus($('#reg-mental-section'), mentalSection());
+    // The checkin event may have replaced the original sheet opener.
+    var opener = $('#reg-start-checkin');
+    if (opener) opener.focus({ preventScroll: true });
+    if (d.safety !== 0) showSupport();
   }
 
   function refreshAgo() {
-    var hint = $('#reg-mental-section .section__hint');
+    var hint = $('#reg-checkin-time');
     if (hint) hint.textContent = mentalHint();
   }
 
@@ -4821,31 +5363,15 @@ App.config = {
 
   /* View events delegated to main */
   function onClick(e) {
-    var seg = e.target.closest('[data-seg]');
-    if (seg && root.contains(seg)) { selectSeg(seg); return; }
     var btn = e.target.closest('[data-action]');
     if (!btn || !root.contains(btn) || btn.disabled) return;
     var action = btn.getAttribute('data-action');
-    if (action === 'sleep') stepSleep(Number(btn.getAttribute('data-step')));
-    else if (action === 'save') saveCheckin();
+    if (action === 'start-checkin') startCheckin();
     else if (action === 'connect') connect([btn.getAttribute('data-key')]);
     else if (action === 'connect-all') connectAll();
     else if (action === 'connect-suit') connect(SUIT.filter(isOff));
     else if (action === 'measure-bp') measureBP();
     else if (action === 'go-diagnosis') App.shell.go('diagnosis');
-  }
-
-  /* Arrow-key navigation for mood and energy options */
-  function onKeydown(e) {
-    var seg = e.target.closest && e.target.closest('[data-seg]');
-    if (!seg) return;
-    var dir = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
-    if (!dir) return;
-    e.preventDefault();
-    var group = App.dom.$$('[data-seg="' + seg.getAttribute('data-seg') + '"]', root);
-    var next = group[(group.indexOf(seg) + dir + group.length) % group.length];
-    next.focus();
-    selectSeg(next);
   }
 
   /* View */
@@ -4860,13 +5386,6 @@ App.config = {
         root.innerHTML = App.ui.empty('users', 'No crew configured.');
         return;
       }
-      var c = lastCheckin();
-      draft = {
-        mood: c && typeof c.mood === 'number' ? c.mood : null,
-        energy: c && typeof c.energy === 'number' ? c.energy : null,
-        sleepMin: c && typeof c.sleepMin === 'number' ? c.sleepMin : C.mental.sleep.defaultMin,
-      };
-
       var html = mentalSection();
       if (App.crew.isEva(crewId)) {
         html += bioSection() + suitSection();
@@ -4878,7 +5397,6 @@ App.config = {
       }
       root.innerHTML = html;
       root.addEventListener('click', onClick);
-      root.addEventListener('keydown', onKeydown);
       clearInterval(agoTimer);
       agoTimer = setInterval(refreshAgo, 30000);
     },
@@ -4892,14 +5410,15 @@ App.config = {
         keys = keys.filter(function (k) { return !pending[k]; });
         if (keys.length) refresh(keys);
       } else if (evt === 'checkin') {
-        if (p && p.crewId === crewId) refreshAgo();
+        if (p && p.crewId === crewId) replaceKeepingFocus($('#reg-mental-section'), mentalSection());
       }
     },
 
     destroy: function () {
+      if (wizard && wizard.body === document.getElementById('sheet-body')) App.ui.sheet.close();
+      wizard = null;
       if (root) {
         root.removeEventListener('click', onClick);
-        root.removeEventListener('keydown', onKeydown);
       }
       clearInterval(agoTimer);
       agoTimer = null;
@@ -5391,6 +5910,31 @@ App.config = {
     if (key === 'bp' && saved && saved.bpSys != null && saved.bpDia != null) return saved.bpSys + '/' + saved.bpDia;
     return saved && saved[key] != null && saved[key] !== '' ? saved[key] : null;
   }
+  /* Last dated value, its source, light and a 7-day chart (App.measurements). */
+  function physicalHistory(p, member) {
+    var M = App.measurements;
+    if (!M || !M.PARAMS[p.key]) return '';
+    var last = M.latest(member.id, p.key);
+    var src = !last ? '' : last.src === 'device' ? 'Sensor' + (last.dev ? ' · ' + last.dev : '') : last.src === 'demo' ? 'Demo · not a real sensor' : 'Manual';
+    var lt = last ? M.light(p.key, last.v, member.id) : null;
+    var when = last ? new Date(last.at).toLocaleString('en-US', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    var days = M.daily(member.id, p.key, 7), vals = days.map(function (d) { return d.v; }).filter(function (v) { return v != null; });
+    var chart = '';
+    if (vals.length) {
+      var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), span = hi - lo || 1;
+      chart = '<svg class="dx-7d" viewBox="0 0 70 20" role="img" aria-label="7-day trend">' + days.map(function (d, i) {
+        if (d.v == null) return '';
+        var y = 17 - (d.v - lo) / span * 14;
+        return '<circle cx="' + (5 + i * 10) + '" cy="' + y.toFixed(1) + '" r="2.2"></circle>';
+      }).join('') + '</svg>';
+    }
+    var b = M.baseline(member.id, p.key);
+    return '<p class="dx-hist">' +
+      (last ? '<span class="dx-light" data-light="' + (lt || 'none') + '">' + esc(lt ? lt[0].toUpperCase() + lt.slice(1) : 'No range') + '</span>' +
+        '<span>' + esc(when) + '</span><span class="dx-src" data-src="' + esc(last.src) + '">' + esc(src) + '</span>' : '<span class="subtle">No dated measurement yet</span>') +
+      (chart ? chart + '<span class="subtle">7 days</span>' : '') +
+      (b != null ? '<span class="subtle">Baseline ' + esc(String(b)) + '</span>' : '') + '</p>';
+  }
   function physicalCard(p, member, data, saved) {
     var v = physicalValue(p.key, data, saved);
     var sensorKey = SENSOR_KEYS[p.key];
@@ -5400,7 +5944,7 @@ App.config = {
     if(p.key==='bp' && saved.bpSys!=null && saved.bpDia!=null) v=Number(saved.bpSys)+'/'+Number(saved.bpDia);
     var value = v == null ? '<span class="dx-missing">No measurement yet</span>' : '<b>' + esc(String(v)) + '</b> <small>' + esc(p.unit) + '</small>';
     var input = p.key === 'bp' ? '<div class="dx-bp-inputs"><label class="field"><span class="field__label">Systolic</span><input class="input" type="number" inputmode="decimal" data-physical-input="bpSys" value="' + esc(saved.bpSys == null ? '' : saved.bpSys) + '" placeholder="mmHg"></label><label class="field"><span class="field__label">Diastolic</span><input class="input" type="number" inputmode="decimal" data-physical-input="bpDia" value="' + esc(saved.bpDia == null ? '' : saved.bpDia) + '" placeholder="mmHg"></label></div>' : (p.source === 'manual' ? '<label class="field"><span class="field__label">Enter value</span><input class="input" type="number" inputmode="decimal" step="any" data-physical-input="' + p.key + '" value="' + esc(saved[p.key] == null ? '' : saved[p.key]) + '" placeholder="Not recorded"></label>' : '');
-    return '<article class="card" data-physical-card="' + p.key + '"><div class="row-between"><b>' + esc(p.label) + '</b><span class="chip" data-tone="' + (sensorKey && status !== 'connected' ? 'warning' : 'accent') + '">' + esc(sourceLabel) + '</span></div><p class="dx-physical-value">' + value + '</p><p class="subtle">' + esc(p.method) + '</p>' + input + '<details><summary>Why it matters · ranges · action</summary><p>' + esc(p.why) + '</p><p>' + esc(PHYSICAL_GUIDANCE[p.key]) + '</p><p class="subtle">Prototype guidance only. Contact the flight surgeon for interpretation.</p></details></article>';
+    return '<article class="card" data-physical-card="' + p.key + '"><div class="row-between"><b>' + esc(p.label) + '</b><span class="chip" data-tone="' + (sensorKey && status !== 'connected' ? 'warning' : 'accent') + '">' + esc(sourceLabel) + '</span></div><p class="dx-physical-value">' + value + '</p>' + physicalHistory(p, member) + '<p class="subtle">' + esc(p.method) + '</p>' + input + '<details><summary>Why it matters · ranges · action</summary><p>' + esc(p.why) + '</p><p>' + esc(PHYSICAL_GUIDANCE[p.key]) + '</p><p class="subtle">Prototype guidance only. Contact the flight surgeon for interpretation.</p></details></article>';
   }
   function physicalSectionHTML(member, data) {
     var saved = manualValues(member.id);
@@ -5408,7 +5952,12 @@ App.config = {
       '<summary class="dx-physical-summary"><span class="section__titles"><span class="eyebrow">Daily measurements</span>' +
         '<span class="section__title">12 health indicators</span><span class="section__hint">Manual entries and devices · tap to expand</span></span>' +
         App.icon('chevronRight') + '</summary><div class="section dx-physical-content">' +
-      '<div class="card dx-physical-notice"><b>Sensor connection status</b><p>All 12 parameters remain visible. If a sensor is not paired, its card says so; no missing value is treated as normal. Browser demo streams are simulated, not readings from suit hardware.</p></div><div class="dx-physical-grid">' + PHYSICAL.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div><p class="subtle">Manual entries are stored on this phone only. They are not sent to EVA Station.</p></div></details>';
+      '<div class="card dx-physical-notice"><b>Sensor connection status</b><p>All 12 parameters remain visible. If a sensor is not paired, its card says so; no missing value is treated as normal. Browser demo streams are simulated, not readings from suit hardware.</p></div><div class="st-actions dx-physical-actions">' +
+        '<button type="button" class="btn btn--secondary btn--sm" data-dx-pair-ble>' + App.icon('link') + 'Pair Bluetooth sensor</button>' +
+        '<button type="button" class="btn btn--secondary btn--sm" data-dx-sync-monthly>' + App.icon('download') + 'Send monthly panel to station</button></div>' +
+      '<div class="dx-physical-grid">' + PHYSICAL.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div>' +
+      '<h3 class="section__title dx-labs-title">Monthly blood tests</h3>' +
+      '<div class="dx-physical-grid">' + MONTHLY_LABS.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div><p class="subtle">Manual entries are stored on this phone only. They are not sent to EVA Station.</p></div></details>';
   }
   function onPhysicalToggle(e) {
     if (e.target.id === 'dx-physical-complete') physicalOpen = e.target.open;
@@ -5440,6 +5989,13 @@ App.config = {
     var row = Object.assign({}, all[member] || {});
     row[key] = input.value === '' ? null : Number(input.value);
     if ((key==='bpSys'||key==='bpDia') && row.bpSys!=null && row.bpDia!=null) row.bpAt=Date.now();
+    // Dated, sourced record for the 7-day history (validated; errors shown, value kept for correction)
+    if (App.measurements && input.value !== '' && (App.measurements.PARAMS[key] || key === 'bpSys' || key === 'bpDia')) {
+      var res = (key === 'bpSys' || key === 'bpDia')
+        ? (row.bpSys != null && row.bpDia != null ? App.measurements.add(member, 'bp', { sys: row.bpSys, dia: row.bpDia }, { source: 'manual' }) : { ok: true })
+        : App.measurements.add(member, key, row[key], { source: 'manual' });
+      if (!res.ok) { App.ui.toast(res.error, { icon: 'info' }); return; }
+    }
     all[member] = row;
     App.store.set({physicalManual:all});
     updatePhysicalValues(App.crew.byId(member),getData(member));
@@ -5788,6 +6344,7 @@ App.config = {
     var body = editing ? editForm(m) :
       '<dl class="kv pf-kv">' +
         kvRow('Name', m.name) +
+        kvRow('Crew ID', m.id) +
         kvRow('Age', hasValue(m.age) ? m.age + ' years' : '') +
         kvRow('Sex', m.sex) +
         kvRow('Role', ROLE_LABEL[m.role] || m.role) +
@@ -5796,24 +6353,49 @@ App.config = {
         kvRow('Mission', C.mission.name) +
         kvRow('Destination', C.mission.destination) +
         kvRow('Site', C.mission.site) +
+        kvRow('Duration', durationText()) +
       '</dl>';
     return '<section class="section" aria-label="Identity and mission">' +
       App.ui.sectionHead({ eyebrow: 'Crew profile', title: 'Identity and mission', action: action }) +
       '<div class="card">' + body + '</div></section>';
   }
 
+  /* Planned EVA (station value when linked) and mission duration */
+  function durationText() {
+    var sm = App.store.get('stationMission') || {};
+    var h = Number(sm.plannedH) > 0 ? Number(sm.plannedH) : C.mission.plannedH;
+    var parts = [];
+    if (h) parts.push('EVA ' + h + ' h planned');
+    if (C.mission.durationDays) parts.push('mission ' + C.mission.durationDays + ' days');
+    return parts.join(' · ');
+  }
+
+  // The clinical record shipped in config.js is example data, never a real person.
+  var EXAMPLE_HINT = 'Example record from the mission configuration: replace it with the real one before a mission.';
+
   function medical(m) {
     var md = m.medical || {};
     var allergy = md.allergies && !/^(none\b|no\s)/i.test(md.allergies);
     return '<section class="section" aria-label="Medical history">' +
-      App.ui.sectionHead({ eyebrow: 'History', title: 'Medical history' }) +
+      App.ui.sectionHead({ eyebrow: 'History', title: 'Medical history', hint: EXAMPLE_HINT }) +
       '<div class="card"><dl class="kv pf-kv">' +
         kvRow('Allergies', md.allergies, allergy) +
         kvRow('Conditions', md.conditions) +
         kvRow('Medication', md.medication) +
+        kvRow('Supplements', md.supplements) +
         kvRow('Surgeries', md.surgeries) +
         kvRow('EVA hours', hasValue(md.evaHours) ? md.evaHours + ' h' : '') +
       '</dl></div></section>';
+  }
+
+  function contacts(m) {
+    var list = ((m.medical || {}).contacts) || [];
+    var body = list.length ? '<dl class="kv pf-kv">' + list.map(function (c) {
+      return kvRow(c.relation || 'Contact', c.name + (c.channel ? ' · ' + c.channel : ''));
+    }).join('') + '</dl>' : '<p class="muted">No emergency contact recorded.</p>';
+    return '<section class="section" aria-label="Emergency contacts">' +
+      App.ui.sectionHead({ eyebrow: 'Emergency', title: 'Emergency contacts', hint: 'Reached through mission control. ' + EXAMPLE_HINT }) +
+      '<div class="card">' + body + '</div></section>';
   }
 
   function baseline(m) {
@@ -5919,7 +6501,7 @@ App.config = {
       root.innerHTML = App.ui.empty('user', 'No crew configured.');
       return;
     }
-    root.innerHTML = '<div class="pf" id="pf">' + hero(m) + identity(m) + medical(m) + baseline(m) + '</div>';
+    root.innerHTML = '<div class="pf" id="pf">' + hero(m) + identity(m) + medical(m) + contacts(m) + baseline(m) + '</div>';
     var wrap = root.querySelector('#pf');
     wrap.addEventListener('click', onClick);
     var form = wrap.querySelector('#pf-form');
@@ -6129,6 +6711,7 @@ App.config = {
       '</div>' +
       '<nav class="list cfg-list" aria-label="Data and crew">' +
         listItem('cfg-guide', 'open-guide', 'info', 'How to read EVA', 'Levels, score and screens') +
+        listItem('cfg-cycle', 'open-cycle', 'heart', 'Cycle tracking', App.cycle && App.cycle.isEnabled() ? 'On · private' : 'Optional · private') +
         listItem('cfg-export', 'open-export', 'download', 'Export data', plural(eventCount(), 'event', 'events') + ' in the blackbox') +
         listItem('cfg-reports', 'open-reports', 'fileText', 'Reports', reportsSub()) +
         listItem('cfg-roles', 'open-roles', 'users', 'Assign roles', rolesSummary()) +
@@ -6523,6 +7106,7 @@ App.config = {
   /* Close the drawer before opening a sheet */
   var SHEETS = { export: sheetExport, reports: sheetReports, roles: sheetRoles, voice: sheetVoice, simulation: sheetSim,
     guide: function () { App.guide.open(); },
+    cycle: function () { if (App.cycle) App.cycle.openSheet(); },
     link: function () { if (App.link && App.link.openSheet) App.link.openSheet(); } };
 
   function open(name) {

@@ -39,6 +39,7 @@ func main() {
 	virtual := flag.String("virtual", "AST-002", "crew ids with a virtual suit at start-up: comma list, 'all' or 'none'")
 	tlsCert := flag.String("tls-cert", "", "TLS certificate PEM (required for phone BLE in Chrome)")
 	tlsKey := flag.String("tls-key", "", "TLS private key PEM")
+	opToken := flag.String("operator-token", "", "token for opening the operator console from another device (default: EVA_OPERATOR_TOKEN or <data>/operator.token, created on first start)")
 	flag.Parse()
 
 	st, err := store.Open(filepath.Join(*dataDir, "eva-station.db"))
@@ -88,8 +89,13 @@ func main() {
 		source = dir + " (live from disk)"
 	}
 
+	token, err := server.LoadOperatorToken(*dataDir, *opToken)
+	if err != nil {
+		log.Fatalf("operator token: %v", err)
+	}
+
 	hub := server.NewHub()
-	srv := &server.Server{Eng: eng, St: st, Sim: sm, Hub: hub, Web: files, Port: *port}
+	srv := &server.Server{Eng: eng, St: st, Sim: sm, Hub: hub, Web: files, Port: *port, OperatorToken: token}
 	st.OnCommit = srv.OnCommit
 	eng.SetEmitter(hub)
 	eng.SetVirtualSuits(sm)
@@ -131,8 +137,14 @@ func main() {
 	fmt.Println("  EVA Station " + server.Version + "  ·  biomedical EVA monitoring")
 	fmt.Println("  ─────────────────────────────────────────────────────────")
 	fmt.Printf("  PC program      %s://localhost:%d\n", scheme, *port)
-	for _, u := range server.LANURLs(*port) {
+	lan := server.LANURLs(*port)
+	for _, u := range lan {
 		fmt.Printf("  Phones (Wi-Fi)  %s://%s/app/\n", scheme, strings.TrimPrefix(u, "http://"))
+	}
+	if len(lan) > 0 {
+		// The console is open on this PC; other devices need the operator link.
+		fmt.Printf("  Operator link   %s://%s/?operator=%s   (console from another device; keep it private)\n",
+			scheme, strings.TrimPrefix(lan[0], "http://"), token)
 	}
 	fmt.Printf("  Database        %s\n", filepath.Join(*dataDir, "eva-station.db"))
 	fmt.Printf("  Web files       %s\n", source)

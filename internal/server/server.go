@@ -41,45 +41,56 @@ type Server struct {
 	Hub  *Hub
 	Web  fs.FS // contains app/, pc/ and shared/
 	Port int
+
+	// OperatorToken lets another device (not this PC) use the operator
+	// console: /?operator=TOKEN or "Authorization: Bearer TOKEN". See auth.go.
+	OperatorToken string
 }
 
-// Handler returns the HTTP routes.
+// Handler returns the HTTP routes. Phones get /app/, /shared/, /ws/device and
+// /api/health; everything else is operator-only (see auth.go).
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	op := s.operator
 
 	// Live links
 	mux.HandleFunc("GET /ws/device", s.wsDevice)
-	mux.HandleFunc("GET /ws/console", s.wsConsole)
+	mux.HandleFunc("GET /ws/console", op(s.wsConsole))
 
-	// Data and actions
-	mux.HandleFunc("GET /api/info", s.apiInfo)
-	mux.HandleFunc("GET /api/health/database", s.apiDatabaseHealth)
-	mux.HandleFunc("GET /api/state", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, s.Eng.Snapshot()) })
-	mux.HandleFunc("POST /api/mission/start", s.apiMission("start"))
-	mux.HandleFunc("POST /api/mission/end", s.apiMission("end"))
-	mux.HandleFunc("POST /api/mission/abort", s.apiMission("abort"))
-	mux.HandleFunc("POST /api/mission/new", s.apiMission("new"))
-	mux.HandleFunc("POST /api/alerts/{id}/ack", s.apiAck)
-	mux.HandleFunc("POST /api/instruction", s.apiInstruction)
-	mux.HandleFunc("POST /api/crew/{id}/incident", s.apiIncident)
-	mux.HandleFunc("POST /api/crew/{id}/help-clear", func(w http.ResponseWriter, r *http.Request) {
+	// Public liveness probe (no mission or medical data)
+	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"status": "ok", "service": "EVA Station", "version": Version})
+	})
+
+	// Data and actions (operator)
+	mux.HandleFunc("GET /api/info", op(s.apiInfo))
+	mux.HandleFunc("GET /api/health/database", op(s.apiDatabaseHealth))
+	mux.HandleFunc("GET /api/state", op(func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, s.Eng.Snapshot()) }))
+	mux.HandleFunc("POST /api/mission/start", op(s.apiMission("start")))
+	mux.HandleFunc("POST /api/mission/end", op(s.apiMission("end")))
+	mux.HandleFunc("POST /api/mission/abort", op(s.apiMission("abort")))
+	mux.HandleFunc("POST /api/mission/new", op(s.apiMission("new")))
+	mux.HandleFunc("POST /api/alerts/{id}/ack", op(s.apiAck))
+	mux.HandleFunc("POST /api/instruction", op(s.apiInstruction))
+	mux.HandleFunc("POST /api/crew/{id}/incident", op(s.apiIncident))
+	mux.HandleFunc("POST /api/crew/{id}/help-clear", op(func(w http.ResponseWriter, r *http.Request) {
 		s.Eng.ClearHelp(r.PathValue("id"))
 		writeJSON(w, 200, map[string]any{"ok": true})
-	})
-	mux.HandleFunc("GET /api/crew/{id}/readiness", s.apiReadiness)
-	mux.HandleFunc("POST /api/incidents/{id}/seal", s.apiSeal)
-	mux.HandleFunc("GET /api/sim", s.apiSim)
-	mux.HandleFunc("POST /api/sim/inject", s.apiSimInject)
-	mux.HandleFunc("POST /api/sim/clear", s.apiSimClear)
-	mux.HandleFunc("POST /api/sim/virtual", s.apiSimVirtual)
-	mux.HandleFunc("GET /api/blackbox", s.apiChain)
-	mux.HandleFunc("GET /api/blackbox/verify", s.apiVerify)
-	mux.HandleFunc("GET /api/export/{table}", s.apiExport)
+	}))
+	mux.HandleFunc("GET /api/crew/{id}/readiness", op(s.apiReadiness))
+	mux.HandleFunc("POST /api/incidents/{id}/seal", op(s.apiSeal))
+	mux.HandleFunc("GET /api/sim", op(s.apiSim))
+	mux.HandleFunc("POST /api/sim/inject", op(s.apiSimInject))
+	mux.HandleFunc("POST /api/sim/clear", op(s.apiSimClear))
+	mux.HandleFunc("POST /api/sim/virtual", op(s.apiSimVirtual))
+	mux.HandleFunc("GET /api/blackbox", op(s.apiChain))
+	mux.HandleFunc("GET /api/blackbox/verify", op(s.apiVerify))
+	mux.HandleFunc("GET /api/export/{table}", op(s.apiExport))
 
-	// Printable reports (HTML → Print → PDF)
-	mux.HandleFunc("GET /reports/mission/{id}", s.reportMission)
-	mux.HandleFunc("GET /reports/incident/{id}", s.reportIncident)
-	mux.HandleFunc("GET /reports/monthly/{crew}", s.reportMonthly)
+	// Printable reports (HTML → Print → PDF), operator only
+	mux.HandleFunc("GET /reports/mission/{id}", op(s.reportMission))
+	mux.HandleFunc("GET /reports/incident/{id}", op(s.reportIncident))
+	mux.HandleFunc("GET /reports/monthly/{crew}", op(s.reportMonthly))
 
 	// Static front-ends
 	sub := func(dir string) http.Handler {
@@ -92,28 +103,15 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /app/", http.StripPrefix("/app/", sub("app")))
 	mux.Handle("GET /shared/", http.StripPrefix("/shared/", sub("shared")))
 	mux.HandleFunc("GET /app", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/app/", http.StatusFound) })
-	mux.Handle("GET /", sub("pc"))
-	return cors(mux)
+	mux.Handle("GET /", s.operatorPage(sub("pc")))
+	// No wildcard CORS: the phone app is same-origin (or file:// for the
+	// offline bundle) and only uses /ws/device, which CORS does not govern.
+	return securityHeaders(mux)
 }
 
 func noCache(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
-		h.ServeHTTP(w, r)
-	})
-}
-
-// cors allows a phone app served from another origin (e.g. file:// or a
-// dev server) to call the API on the isolated mission network.
-func cors(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
 		h.ServeHTTP(w, r)
 	})
 }
@@ -231,7 +229,7 @@ func (s *Server) wsDevice(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		case "ack":
-			if _, err := s.Eng.Ack(env.AlertID, env.Response, "crew"); err != nil {
+			if _, err := s.Eng.AckByCrew(env.AlertID, env.Response, c.crewID); err != nil {
 				c.send(marshal(map[string]any{"type": "error", "error": err.Error()}))
 			}
 		case "incident":

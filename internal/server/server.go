@@ -509,8 +509,17 @@ func (s *Server) apiDatabaseHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	ok := integrity == "ok"
 	status := 200
-	if !ok { status = 500 }
-	writeJSON(w, status, map[string]any{"ok": ok, "database": "SQLite", "integrity": integrity, "journalMode": "WAL", "counts": counts, "checkedAt": time.Now().UnixMilli()})
+	if !ok {
+		status = 500
+	}
+	writeJSON(w, status, map[string]any{
+		"ok":         ok,
+		"database":   "SQLite",
+		"integrity":  integrity,
+		"journalMode": "WAL",
+		"counts":     counts,
+		"checkedAt":  time.Now().UnixMilli(),
+	})
 }
 
 func (s *Server) apiChain(w http.ResponseWriter, r *http.Request) {

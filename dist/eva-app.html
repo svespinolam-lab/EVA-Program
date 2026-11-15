@@ -1199,6 +1199,23 @@ textarea.input { min-height: 180px; padding: 12px; font-family: var(--font-mono)
 .dx-note__title { font-family: var(--font-display); font-weight: 600; }
 .dx-note__text { font-size: var(--fs-sm); color: var(--text-2); }
 
+
+/* Complete daily physical-health panel */
+.dx-physical-notice { margin-bottom: var(--sp-3); background: var(--surface-2); }
+.dx-physical-notice p { margin: 6px 0 0; color: var(--text-2); font-size: var(--fs-sm); line-height: 1.5; }
+.dx-physical-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: var(--sp-3); }
+.dx-physical-grid > .card { min-width: 0; padding: var(--sp-3); }
+.dx-physical-value { margin: 10px 0 4px; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.dx-physical-grid details { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 9px; color: var(--text-2); font-size: var(--fs-sm); }
+.dx-physical-grid details summary { cursor: pointer; color: var(--text); font-weight: 600; }
+.dx-physical-grid details p { line-height: 1.5; }
+.dx-physical-grid .field { display: block; margin-top: 10px; }
+.dx-physical-grid .input { width: 100%; }
+@media (min-width: 700px) { .dx-physical-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+
+.dx-bp-inputs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-2); }
+.dx-physical-notice .btn { margin-top:10px; }
+
 </style>
 <style>/* css/views/profile.css */
 /* EVA · Profile. Uses theme tokens and the .pf- prefix. */
@@ -2393,7 +2410,7 @@ App.config = {
       mean: mean,
       val: Object.assign({}, mean, { o2: o2Start, batt: battStart }),
       norm: { o2: o2Start, batt: battStart },   // Reserves consumed over time
-      sensors: {}, lost: {}, pending: {}, hist: {},
+      sensors: {}, lost: {}, pending: {}, hist: {}, hardware: {},
       bp: null, bpStatus: 'idle', bpPromise: null,
       scen: {},                                  // Active faults: id to {p (0..1), clearing, at}
       phase: Math.random() * Math.PI * 2,
@@ -2619,6 +2636,8 @@ App.config = {
       return sim && sim.sensors[key] ? sim.sensors[key] : 'disconnected';
     },
 
+    isHardwareConnected: function(crewId,key) { var sim=sims[crewId]; return !!(sim && Number.isFinite(sim.hardware[key])); },
+
     isConnected: function (crewId, key) {
       if (isRemote(crewId)) return api.status(crewId, key) === 'connected';
       var sim = sims[crewId];
@@ -2646,12 +2665,29 @@ App.config = {
       if (!sim) return null;
       var d = { t: sim.t, effort: sim.effort };
       LIVE_KEYS.forEach(function (k) {
-        d[k] = sim.sensors[k] === 'connected' ? round(sim.val[k], decimalsOf(k)) : null;
+        d[k] = sim.sensors[k] === 'connected' ? round(Number.isFinite(sim.hardware[k]) ? sim.hardware[k] : sim.val[k], decimalsOf(k)) : null;
       });
       d.bpSys = sim.bp ? sim.bp.bpSys : null;
       d.bpDia = sim.bp ? sim.bp.bpDia : null;
       d.bpAt = sim.bp ? sim.bp.bpAt : null;
+      d.source = Object.keys(sim.hardware).length ? 'device' : 'virtual';
       return d;
+    },
+
+    ingestHardware: function(crewId,key,value) {
+      var sim=sims[crewId];
+      if(!sim || LIVE_KEYS.indexOf(key)<0 || !Number.isFinite(value)) return false;
+      sim.hardware[key]=value;
+      delete sim.lost[key];
+      setStatus(sim,key,'connected');
+      App.bus.emit('telemetry',{crewId:crewId,data:api.latest(crewId),hardware:true});
+      return true;
+    },
+    clearHardware: function(crewId,key) {
+      var sim=sims[crewId]; if(!sim) return;
+      delete sim.hardware[key];
+      setStatus(sim,key,'disconnected','lost');
+      App.bus.emit('telemetry',{crewId:crewId,data:api.latest(crewId),hardware:true});
     },
 
     history: function (crewId, key) {
@@ -2771,6 +2807,64 @@ App.config = {
   App.telemetry = api;
 })();
 
+</script>
+<script>/* js/engine/ble.js */
+/* EVA BLE adapter: standard GATT heart-rate, pulse-oximeter and thermometer profiles.
+   Real hardware readings replace simulated values only for the paired metric. */
+(function () {
+  'use strict';
+  var App=window.App=window.App||{}, links={};
+  var SERVICES=['heart_rate','health_thermometer','pulse_oximeter'];
+  function sfloat(dv,off) {
+    var raw=dv.getUint16(off,true), mant=raw&0x0fff, exp=(raw>>12)&0x0f;
+    if(mant>=0x0800)mant-=0x1000;if(exp>=0x08)exp-=0x10;
+    return mant*Math.pow(10,exp);
+  }
+  function float11073(dv,off) {
+    var raw=dv.getUint32(off,true), mant=raw&0x00ffffff, exp=(raw>>24)&0xff;
+    if(mant&0x00800000)mant-=0x01000000;if(exp&0x80)exp-=0x100;
+    return mant*Math.pow(10,exp);
+  }
+  function listen(device,serviceName,charName,crewId,key,decode) {
+    return device.gatt.getPrimaryService(serviceName).then(function(s){return s.getCharacteristic(charName);})
+      .then(function(ch){
+        return ch.startNotifications().then(function(){
+          ch.addEventListener('characteristicvaluechanged',function(ev){
+            var v=decode(ev.target.value);
+            if(Number.isFinite(v))App.telemetry.ingestHardware(crewId,key,v);
+          });
+          return ch;
+        });
+      });
+  }
+  function pair(crewId) {
+    if(!navigator.bluetooth||!navigator.bluetooth.requestDevice)
+      return Promise.reject(new Error('Bluetooth LE is unavailable here. Use Android Chrome over HTTPS or the native app.'));
+    return navigator.bluetooth.requestDevice({
+      filters:SERVICES.map(function(s){return {services:[s]};}),
+      optionalServices:SERVICES
+    }).then(function(device){
+      return device.gatt.connect().then(function(){
+        var tasks=[
+          listen(device,'heart_rate','heart_rate_measurement',crewId,'hr',function(dv){var flags=dv.getUint8(0);return flags&1?dv.getUint16(1,true):dv.getUint8(1);}).catch(function(){return null;}),
+          listen(device,'health_thermometer','temperature_measurement',crewId,'temp',function(dv){return float11073(dv,1);}).catch(function(){return null;}),
+          listen(device,'pulse_oximeter','plx_continuous_measurement',crewId,'spo2',function(dv){return sfloat(dv,1);}).catch(function(){return null;})
+        ];
+        return Promise.all(tasks).then(function(chars){
+          if(!chars.length)throw new Error('No supported measurement characteristic found on this device.');
+          links[crewId]=links[crewId]||[];links[crewId].push({device:device,chars:chars});
+          device.addEventListener('gattserverdisconnected',function(){
+            ['hr','temp','spo2'].forEach(function(k){App.telemetry.clearHardware(crewId,k);});
+            App.ui.toast('BLE device disconnected · values marked unavailable',{icon:'unlink',level:2});
+          });
+          App.ui.toast('BLE sensor paired · live readings enabled',{icon:'bluetooth'});
+          return device.name||'BLE sensor';
+        });
+      });
+    });
+  }
+  App.ble={pair:pair,connected:function(crewId){return !!(links[crewId]&&links[crewId].length);}};
+})();
 </script>
 <script>/* js/engine/risk.js */
 /* EVA · Risk classifier. Converts suit data and mental health check-ins into levels 0–3, scores 0–100, findings, and summaries. Thresholds: config.metrics. Continuous sensors rise after 3 consecutive readings and fall after 5. Blood pressure, signal, and mental health update immediately. Emits risk {crewId, assessment, prevLevel, changed} and alert {crewId, member, finding}. */
@@ -3765,6 +3859,9 @@ App.config = {
   var served = /^https?:$/.test(location.protocol) && location.pathname.indexOf('/app') === 0;
   var socket = null, retry = null, batchTimer = null, delay = 1000, initialized = false;
   var state = 'off', lastAck = 0, replay = [], inFlight = null, sent = new Set();
+  var monthlyOutbox = App.storage.get('monthlyOutbox', []);
+  if (!Array.isArray(monthlyOutbox)) monthlyOutbox = [];
+  var monthlyInFlight = null, monthlySent = null;
   var alerts = {}, seen = {}, abortTimer = null, abortKey = null;
   var esc = App.dom.esc;
   var saved = App.storage.get('outbox', []);
@@ -3772,6 +3869,7 @@ App.config = {
     if (!Array.isArray(row)) return row;
     var item = { type: 'telemetry', crewId: row[0], seq: row[1], t: row[2] };
     FIELDS.forEach(function (k, i) { if (Number.isFinite(row[i + 3])) item[k] = row[i + 3]; });
+    item.source = row[16] || 'virtual';
     return item;
   }).filter(function (item) { return item && Number.isSafeInteger(item.seq) && item.seq > 0 && Number.isFinite(item.t) && typeof item.crewId === 'string'; }).slice(-20000);
   var seq = Math.max(Number(App.storage.get('linkSeq', 0)) || 0, outbox.reduce(function (n, item) { return Math.max(n, item.seq); }, 0));
@@ -3786,8 +3884,25 @@ App.config = {
   }
   function persist() {
     App.storage.set('outbox', outbox.map(function (item) {
-      return [item.crewId, item.seq, item.t].concat(FIELDS.map(function (k) { return item[k] == null ? null : item[k]; }));
+      return [item.crewId, item.seq, item.t].concat(FIELDS.map(function (k) { return item[k] == null ? null : item[k]; }), item.source || 'virtual');
     }));
+  }
+  function persistMonthly() { App.storage.set('monthlyOutbox', monthlyOutbox); }
+  function flushMonthly() {
+    if (state !== 'online' || monthlyInFlight || !monthlyOutbox.length) return;
+    var item = monthlyOutbox[0];
+    if (send(Object.assign({ type: 'monthly-health' }, item))) { monthlyInFlight = item.month; monthlySent = JSON.stringify(item); }
+  }
+  function queueMonthlyHealth(record) {
+    if (!record || !/^\\d{4}-\\d{2}$/.test(record.month)) throw new Error('Monthly panel requires YYYY-MM');
+    var clean = { month: record.month };
+    ['hemoglobin','wbc','platelets','glucose','orthostaticDrop','weightKg','radiationMonth'].forEach(function(k) {
+      if (Number.isFinite(record[k])) clean[k] = record[k];
+    });
+    if (Object.keys(clean).length === 1) throw new Error('Enter at least one monthly clinical value first');
+    var i = monthlyOutbox.findIndex(function(x){return x.month===clean.month;});
+    if (i >= 0) monthlyOutbox[i] = Object.assign({}, monthlyOutbox[i], clean); else monthlyOutbox.push(clean);
+    persistMonthly(); flushMonthly(); changed(); return true;
   }
   function status() { return { state: state, host: host(), crewId: crewId(), queued: outbox.length, lastAck: lastAck }; }
   function changed() {
@@ -3826,7 +3941,7 @@ App.config = {
     clearTimeout(retry); clearTimeout(batchTimer); retry = batchTimer = null;
     var old = socket; socket = null;
     if (old) { old.onopen = old.onmessage = old.onclose = old.onerror = null; old.close(); }
-    replay = []; inFlight = null; sent.clear();
+    replay = []; inFlight = null; sent.clear(); monthlyInFlight = null; monthlySent = null;
   }
   function schedule() {
     if (!enabled()) return;
@@ -3955,12 +4070,14 @@ App.config = {
         alerts = {};
         (message.alerts || []).forEach(alert); renderAlerts();
         replay = outbox.filter(function (item) { return item.crewId === crewId(); });
-        changed(); api.sendReadiness(); queueCount(); nextBatch(); break;
+        changed(); api.sendReadiness(); queueCount(); nextBatch(); flushMonthly(); break;
       case 'ack-seq':
         if (Number.isSafeInteger(message.seq) && message.seq >= 0) {
           lastAck = Math.max(lastAck, message.seq); prune(message.seq);
         }
         break;
+      case 'monthly-health-ok':
+        if (monthlyOutbox.length && monthlyOutbox[0].month === message.month && JSON.stringify(monthlyOutbox[0]) === monthlySent) monthlyOutbox.shift(); persistMonthly(); monthlyInFlight = null; monthlySent = null; flushMonthly(); toast('Monthly clinical panel synced'); break;
       case 'batch-ok':
         if (!inFlight) break;
         clearTimeout(batchTimer);
@@ -3978,7 +4095,7 @@ App.config = {
       case 'inject': App.telemetry.inject(crewId(), message.scenario); break;
       case 'clear': App.telemetry.clearScenarios(crewId()); break;
       case 'replaced': toast(message.reason || 'This phone was replaced'); api.setEnabled(false); break;
-      case 'error': toast(message.error || 'Station error'); break;
+      case 'error': monthlyInFlight = null; monthlySent = null; toast(message.error || 'Station error'); break;
       // pong and readiness-ok need no state change.
     }
   }
@@ -4029,7 +4146,7 @@ App.config = {
   }
   function telemetry(event) {
     if (!enabled() || !event || event.remote || event.crewId !== crewId() || !App.crew.isEva(crewId()) || !event.data) return;
-    var item = { type: 'telemetry', crewId: crewId(), seq: ++seq, t: Date.now() };
+    var item = { type: 'telemetry', crewId: crewId(), seq: ++seq, t: Date.now(), source: event.data.source || 'virtual' };
     App.storage.set('linkSeq', seq);
     FIELDS.forEach(function (k) { if (Number.isFinite(event.data[k])) item[k] = event.data[k]; });
     outbox.push(item);
@@ -4116,6 +4233,7 @@ App.config = {
       log('system', 'Incident reported to EVA Station', 1); toast('Incident reported'); return true;
     },
     sendReadiness: function () { var message = readiness(); return !!(enabled() && state === 'online' && message && send(message)); },
+    sendMonthlyHealth: queueMonthlyHealth,
     openSheet: openSheet,
   };
 })();
@@ -4341,7 +4459,8 @@ App.config = {
     var data = latest();
     var v = rawValue(key, data);
     var level = connected && v !== null ? App.levels.classify(key, v) : null;
-    var live = '<span class="badge badge--live reg-live"><span class="reg-live__dot" aria-hidden="true"></span>Live</span>';
+    var realHardware = !!(App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId,key));
+    var live = '<span class="badge badge--live reg-live"><span class="reg-live__dot" aria-hidden="true"></span>' + (realHardware ? 'Hardware live' : 'Demo · not paired') + '</span>';
     var body;
 
     if (connected) {
@@ -4357,7 +4476,7 @@ App.config = {
           : '') +
         '<button type="button" class="btn btn--secondary btn--block" id="reg-connect-' + key + '" data-action="connect" data-key="' + key + '"' +
         (busy ? ' disabled aria-busy="true"' : '') + '>' +
-        (busy ? '<span class="spinner" aria-hidden="true"></span>Connecting…' : App.icon('signal') + 'Connect sensor') +
+        (busy ? '<span class="spinner" aria-hidden="true"></span>Connecting…' : App.icon('signal') + 'Start demo feed') +
         '</button>';
     }
     return '<div class="sensor reg-sensor" id="reg-row-' + key + '" data-key="' + key + '"' +
@@ -4367,33 +4486,19 @@ App.config = {
 
   /* Blood pressure row measured by tapping the button */
   function bpRow() {
-    var measuring = statusOf('bp') === 'measuring';
-    var data = latest();
-    var v = rawValue('bp', data);
-    var has = v !== null;
-    var level = has ? App.levels.classify('bp', v) : null;
-    lastBpAt = has ? (data.bpAt || null) : null;
-
-    var result = '';
-    if (measuring) {
-      result = '<div class="reg-progress" role="progressbar" aria-label="Measuring blood pressure"></div>';
-    } else if (has) {
-      result = '<div class="reg-result" data-level="' + App.ui.lvlAttr(level) + '">' +
-        '<div class="reg-result__main"><p class="eyebrow">Result</p>' +
-          valueHTML('bp', data, true) + App.ui.statusLine(level, stateText('bp', level, v)) + '</div>' +
-        (data.bpAt ? '<p class="reg-result__time">' + esc(hhmm(data.bpAt)) + '</p>' : '') +
-      '</div>';
-    }
-    var label = measuring
-      ? '<span class="spinner" aria-hidden="true"></span>Measuring…'
-      : App.icon('gauge') + (has ? 'Measure again' : 'Measure pressure');
-
-    return '<div class="sensor reg-sensor" id="reg-row-bp" data-key="bp"' +
-      (has && !measuring ? ' data-level="' + App.ui.lvlAttr(level) + '"' : '') + '>' +
+    var saved = ((App.store.get('physicalManual') || {})[crewId]) || {};
+    var has = Number.isFinite(saved.bpSys) && Number.isFinite(saved.bpDia);
+    var data = has ? { bpSys: saved.bpSys, bpDia: saved.bpDia, bpAt: saved.bpAt || null } : null;
+    var result = has
+      ? '<div class="reg-result"><div class="reg-result__main"><p class="eyebrow">Last manual / cuff reading</p>' +
+          valueHTML('bp', data, true) + '<p class="reg-waiting">Not assessed as live suit telemetry.</p></div>' +
+          (data.bpAt ? '<p class="reg-result__time">' + esc(hhmm(data.bpAt)) + '</p>' : '') + '</div>'
+      : '<p class="reg-waiting">No blood-pressure measurement recorded.</p>';
+    return '<div class="sensor reg-sensor" id="reg-row-bp" data-key="bp">' +
       sensorHead('bp') + result +
-      '<button type="button" class="btn btn--secondary btn--block" id="reg-bp-measure" data-action="measure-bp"' +
-        (measuring ? ' disabled aria-busy="true"' : '') + '>' + label + '</button>' +
-    '</div>';
+      '<button type="button" class="btn btn--secondary btn--block" data-action="go-diagnosis">' +
+        App.icon('clipboard') + 'Enter blood pressure' +
+      '</button></div>';
   }
 
   function bioHead() {
@@ -4403,7 +4508,7 @@ App.config = {
       title: 'Physical health',
       hint: 'Live from the suit',
       action: anyOff
-        ? '<button type="button" class="btn btn--ghost btn--sm" id="reg-connect-all" data-action="connect-all">' + App.icon('link') + 'Connect all</button>'
+        ? '<button type="button" class="btn btn--ghost btn--sm" id="reg-connect-all" data-action="connect-all">' + App.icon('link') + 'Start demo feed</button>'
         : '',
     }) + '</div>';
   }
@@ -4425,7 +4530,7 @@ App.config = {
     if (st === 'connecting') foot = '<span class="spinner" aria-hidden="true"></span>Connecting…';
     else if (!connected) foot = wasLost(key) ? 'Signal lost' : 'No signal';
     else if (v === null) foot = 'Waiting for data…';
-    else foot = esc(stateText(key, level, v, true));
+    else foot = App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId,key) ? esc(stateText(key, level, v, true)) : 'Demo data · hardware not paired';
 
     return '<div class="tile reg-tile" id="reg-tile-' + key + '" data-key="' + key + '"' +
       ' data-conn="' + (connected ? '1' : '0') + '" data-level="' + (v !== null ? App.ui.lvlAttr(level) : 'off') + '"' +
@@ -4587,6 +4692,7 @@ App.config = {
     else if (action === 'connect-all') connectAll();
     else if (action === 'connect-suit') connect(SUIT.filter(isOff));
     else if (action === 'measure-bp') measureBP();
+    else if (action === 'go-diagnosis') App.shell.go('diagnosis');
   }
 
   /* Arrow-key navigation for mood and energy options */
@@ -4715,7 +4821,7 @@ App.config = {
   }
   function metricValue(key, data, id) {
     if (!data) return null;
-    if (key === 'bp') return isNum(data.bpSys) ? data.bpSys : null;   // On demand: use the latest measurement
+    if (key === 'bp') { var manualBP=manualValues(id); return isNum(manualBP.bpSys) ? manualBP.bpSys : null; } // Manual cuff or external BLE cuff entry
     if (!isConnected(id, key)) return null;
     return isNum(data[key]) ? data[key] : null;
   }
@@ -4990,12 +5096,11 @@ App.config = {
       missing: m.onDemand ? 'Not measured' : 'No signal',
     };
     if (key === 'bp') {
+      var manualBP=manualValues(member.id);
       if (isNum(base.bpSys)) r.base = Math.round(base.bpSys) + '/' + Math.round(base.bpDia);
       if (value !== null) {
-        r.actual = App.fmt.metric('bp', data);
-        if (isNum(base.bpSys) && isNum(data.bpDia)) {
-          r.diff = signed(data.bpSys - base.bpSys, 0) + '/' + signed(data.bpDia - base.bpDia, 0);
-        }
+        r.actual = String(manualBP.bpSys) + '/' + (isNum(manualBP.bpDia) ? String(manualBP.bpDia) : '—');
+        if (isNum(base.bpSys) && isNum(manualBP.bpDia)) r.diff = signed(manualBP.bpSys - base.bpSys, 0) + '/' + signed(manualBP.bpDia - base.bpDia, 0);
       }
     } else {
       if (isNum(base[key])) r.base = App.fmt.num(base[key], m.decimals);
@@ -5067,6 +5172,7 @@ App.config = {
         action: '<span id="dx-' + g + '-badge">' + App.ui.badge(info.level) + '</span>',
       }) +
       '<div class="card">' +
+        (g === 'bio' ? '<p class="subtle">Only paired BLE channels are hardware readings. Unpaired channels use demo data or show no measurement.</p>' : '') +
         '<div class="dx-group-result" id="dx-' + g + '-result">' + App.ui.statusLine(info.level, info.text) + '</div>' +
         '<div class="dx-table-wrap">' + tableHTML(g, member, a, data) + '</div>' +
       '</div></section>';
@@ -5093,6 +5199,101 @@ App.config = {
       setHTML(q('#dx-' + g + '-result'), App.ui.statusLine(info.level, info.text));
       setHTML(q('#dx-' + g + '-badge'), App.ui.badge(info.level));
     });
+  }
+
+  /* 4b · Complete daily physical-health panel (manual + sensor sources) */
+  var PHYSICAL = [
+    {key:'hr',label:'Resting heart rate',unit:'bpm',method:'Wearable HR band · 5 min seated',source:'sensor',why:'Early signal of cardiovascular strain, infection or dehydration.'},
+    {key:'hrv',label:'Heart-rate variability (RMSSD)',unit:'ms',method:'Wearable band · overnight',source:'sensor',why:'Tracks recovery and physiological stress against personal baseline.'},
+    {key:'bp',label:'Blood pressure',unit:'mmHg',method:'Bluetooth cuff or manual cuff · seated after 5 min',source:'manual',why:'Screens cardiovascular load and fluid-shift effects.'},
+    {key:'orthostatic',label:'Orthostatic blood-pressure drop',unit:'mmHg',method:'Cuff: lying, then standing at 1 and 3 min',source:'manual',why:'Checks dizziness and intolerance when returning to gravity.'},
+    {key:'spo2',label:'Blood oxygen (SpO₂)',unit:'%',method:'Bluetooth fingertip oximeter',source:'sensor',why:'Monitors oxygenation in a closed habitat or suit.'},
+    {key:'temp',label:'Body temperature',unit:'°C',method:'Bluetooth forehead or ear thermometer',source:'sensor',why:'Flags possible fever or cooling-system problems.'},
+    {key:'rr',label:'Respiratory rate',unit:'breaths/min',method:'Count breaths for 60 seconds or respiratory sensor',source:'manual',why:'Screens respiratory changes and possible CO₂-related problems.'},
+    {key:'glucose',label:'Fasting blood glucose',unit:'mg/dL',method:'Bluetooth glucometer · finger-prick',source:'manual',why:'Tracks metabolic changes; record fasting status.'},
+    {key:'sleep',label:'Sleep duration',unit:'hours',method:'Actigraphy wearable or manual entry',source:'manual',why:'Tracks circadian disruption and accumulated fatigue.'},
+    {key:'weight',label:'Body mass',unit:'kg',method:'Adapted spacecraft scale · manual entry',source:'manual',why:'Tracks nutritional status and muscle-mass changes.'},
+    {key:'hydration',label:'Hydration (urine colour scale)',unit:'1–8',method:'Compare with the hydration colour card',source:'manual',why:'Helps identify dehydration and renal-stone risk.'},
+    {key:'radiationMonth',label:'Accumulated radiation dose this month',unit:'mSv',method:'Personal dosimeter · monthly cumulative dose',source:'manual',why:'Tracks mission and career radiation exposure.'}
+  ];
+  var SENSOR_KEYS = {hr:'hr',hrv:'hrv',spo2:'spo2',temp:'temp',rad:'rad'};
+  var MONTHLY_LABS = [
+    {key:'hemoglobin',label:'Hemoglobin',unit:'g/dL',method:'Monthly blood test',source:'manual',why:'Periodic screen for anemia; interpret using the flight surgeon’s reference range.'},
+    {key:'wbc',label:'White blood cells',unit:'cells/µL',method:'Monthly complete blood count',source:'manual',why:'Trend can help identify infection or immune changes.'},
+    {key:'platelets',label:'Platelets',unit:'cells/µL',method:'Monthly complete blood count',source:'manual',why:'Tracks clotting-related blood count changes.'}
+  ];
+  var PHYSICAL_GUIDANCE = {
+    hr:'Green: 50–90 bpm or within ±10 bpm of baseline. Observe: 91–110 or +10–20 over baseline. Red: >110 at rest, <40 with dizziness, or +20 over baseline for 3 days.',
+    hrv:'Use personal baseline only. Observe: 15–30% below baseline. Review: >30% below baseline or falling for 3 days.',
+    bp:'Green: below 120/80 mmHg. Observe: 120–139 or 80–89. Red: ≥140/90; urgent review at ≥180/120.',
+    orthostatic:'Review: systolic drop ≥20 mmHg, diastolic drop ≥10 mmHg, fainting or marked dizziness.',
+    spo2:'Green: ≥95%. Observe: 92–94%. Red: <92% or <95% with shortness of breath.',
+    temp:'Green: 36.1–37.2 °C. Observe: 37.3–38.0 °C. Red: >38.0 °C or <35.5 °C.',
+    rr:'Green: 12–20 breaths/min. Observe: 21–24 or 10–11. Red: >24 or <10.',
+    glucose:'Green fasting: 70–99 mg/dL. Observe: 100–125 or 60–69. Red: ≥126 or <54; follow flight-surgeon protocol.',
+    sleep:'Green: 7–9 h. Observe: 6–7 h. Review: <6 h or 3 nights in a row below 6 h.',
+    weight:'Observe: 2–5% change in 2 weeks. Red: >5% loss in 30 days.',
+    hydration:'Green: 1–3. Observe: 4–5. Red: ≥6 or no urination for 8 h.',
+    rad:'Green: dose rate <50% of mission budget. Observe: 50–80%. Red: >80% or solar-particle-event warning.',
+    radiationMonth:'Compare the monthly dosimeter reading with the mission and career budgets; flight-surgeon limits govern action.',
+    hemoglobin:'Record the laboratory result and review the trend with the flight surgeon; proposed adult reference: ≥12 g/dL for women and ≥13.5 g/dL for men.',
+    wbc:'Record the laboratory result and compare with the laboratory-specific reference interval; review unexpected trends with the flight surgeon.',
+    platelets:'Record the laboratory result and compare with the laboratory-specific reference interval; review unexpected trends with the flight surgeon.'
+  };
+  function manualValues(id) {
+    var all = App.store.get('physicalManual') || {};
+    return all[id] || {};
+  }
+  function physicalValue(key, data, saved) {
+    if (SENSOR_KEYS[key] && data && isNum(data[SENSOR_KEYS[key]]) && isConnected(App.crew.selected().id, SENSOR_KEYS[key])) return data[SENSOR_KEYS[key]];
+    if (key === 'bp' && saved && saved.bpSys != null && saved.bpDia != null) return saved.bpSys + '/' + saved.bpDia;
+    return saved && saved[key] != null && saved[key] !== '' ? saved[key] : null;
+  }
+  function physicalCard(p, member, data, saved) {
+    var v = physicalValue(p.key, data, saved);
+    var sensorKey = SENSOR_KEYS[p.key];
+    var status = sensorKey && App.telemetry && App.telemetry.status ? App.telemetry.status(member.id, sensorKey) : '';
+    var simulated = sensorKey && !(App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(member.id,sensorKey));
+    var sourceLabel = sensorKey ? (status === 'connected' ? (simulated ? 'Not paired · demo data only' : 'Sensor connected') : 'Sensor not connected') : 'Manual entry / external device';
+    if(p.key==='bp' && saved.bpSys!=null && saved.bpDia!=null) v=Number(saved.bpSys)+'/'+Number(saved.bpDia);
+    var value = v == null ? '<span class="dx-missing">No measurement yet</span>' : '<b>' + esc(String(v)) + '</b> <small>' + esc(p.unit) + '</small>';
+    var input = p.key === 'bp' ? '<div class="dx-bp-inputs"><label class="field"><span class="field__label">Systolic</span><input class="input" type="number" inputmode="decimal" data-physical-input="bpSys" value="' + esc(saved.bpSys == null ? '' : saved.bpSys) + '" placeholder="mmHg"></label><label class="field"><span class="field__label">Diastolic</span><input class="input" type="number" inputmode="decimal" data-physical-input="bpDia" value="' + esc(saved.bpDia == null ? '' : saved.bpDia) + '" placeholder="mmHg"></label></div>' : (p.source === 'manual' ? '<label class="field"><span class="field__label">Enter value</span><input class="input" type="number" inputmode="decimal" step="any" data-physical-input="' + p.key + '" value="' + esc(saved[p.key] == null ? '' : saved[p.key]) + '" placeholder="Not recorded"></label>' : '');
+    return '<article class="card" data-physical-card="' + p.key + '"><div class="row-between"><b>' + esc(p.label) + '</b><span class="chip" data-tone="' + (sensorKey && status !== 'connected' ? 'warning' : 'accent') + '">' + esc(sourceLabel) + '</span></div><p class="dx-physical-value">' + value + '</p><p class="subtle">' + esc(p.method) + '</p>' + input + '<details><summary>Why it matters · ranges · action</summary><p>' + esc(p.why) + '</p><p>' + esc(PHYSICAL_GUIDANCE[p.key]) + '</p><p class="subtle">Prototype guidance only. Contact the flight surgeon for interpretation.</p></details></article>';
+  }
+  function physicalSectionHTML(member, data) {
+    var saved = manualValues(member.id);
+    return '<section class="section" id="dx-physical-complete" aria-label="Complete physical health"><div class="section__head"><div><p class="eyebrow">Daily measurements · 12 indicators</p><h2 class="section__title">Physical health</h2></div></div><div class="card dx-physical-notice"><b>Sensor connection status</b><p>All 12 parameters remain visible. If a sensor is not paired, its card says so; no missing value is treated as normal. Browser demo streams are simulated, not readings from suit hardware.</p></div><div class="dx-physical-grid">' + PHYSICAL.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div><p class="subtle">Manual entries are stored on this phone only. They are not sent to EVA Station.</p></section>';
+  }
+  function updatePhysicalValues(member, data) {
+    if (!st || !q('#dx-physical-complete')) return;
+    PHYSICAL.concat(MONTHLY_LABS).forEach(function(p) {
+      var card=q('[data-physical-card="'+p.key+'"]');
+      if (!card) return;
+      var v=physicalValue(p.key,data,manualValues(member.id));
+      var host=card.querySelector('.dx-physical-value');
+      if (host) setHTML(host,v==null?'<span class="dx-missing">No measurement yet</span>':'<b>'+esc(String(v))+'</b> <small>'+esc(p.unit)+'</small>');
+      var chip=card.querySelector('.chip');
+      if (chip) {
+        var key=SENSOR_KEYS[p.key], status=key&&App.telemetry&&App.telemetry.status?App.telemetry.status(member.id,key):'';
+        var demo=key&&!(App.telemetry&&App.telemetry.isHardwareConnected&&App.telemetry.isHardwareConnected(member.id,key));
+        chip.textContent=key?(status==='connected'?(demo?'Not paired · demo data only':'Sensor connected'):'Sensor not connected'):'Manual entry / external device';
+        chip.setAttribute('data-tone',key&&status!=='connected'?'warning':'accent');
+      }
+    });
+  }
+
+  function savePhysicalInput(e) {
+    var input = e.target.closest('[data-physical-input]');
+    if (!input || !st || !st.root.contains(input)) return;
+    var key = input.getAttribute('data-physical-input');
+    var all = App.store.get('physicalManual') || {};
+    var member = st.memberId;
+    var row = Object.assign({}, all[member] || {});
+    row[key] = input.value === '' ? null : Number(input.value);
+    if ((key==='bpSys'||key==='bpDia') && row.bpSys!=null && row.bpDia!=null) row.bpAt=Date.now();
+    all[member] = row;
+    App.store.set({physicalManual:all});
+    updatePhysicalValues(App.crew.byId(member),getData(member));
   }
 
   /* 5 · Blackbox */
@@ -5200,6 +5401,10 @@ App.config = {
 
   function onClick(e) {
     if (!st) return;
+    var pair = e.target.closest('[data-dx-pair-ble]');
+    if(pair){ if(!App.ble){App.ui.toast('Bluetooth adapter unavailable',{icon:'unlink',level:2});return;} App.ble.pair(st.memberId).catch(function(err){App.ui.toast(err.message,{icon:'unlink',level:2});}); return; }
+    var sync = e.target.closest('[data-dx-sync-monthly]');
+    if(sync){ var saved=manualValues(st.memberId); var now=new Date(); var month=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); try{ if(!App.link||!App.link.sendMonthlyHealth) throw new Error('Station link unavailable'); App.link.sendMonthlyHealth({month:month,hemoglobin:saved.hemoglobin,wbc:saved.wbc,platelets:saved.platelets,glucose:saved.glucose,orthostaticDrop:saved.orthostatic,weightKg:saved.weight,radiationMonth:saved.radiationMonth}); App.ui.toast('Monthly clinical panel queued for EVA Station',{icon:'check'}); }catch(err){App.ui.toast(err.message,{icon:'triangle',level:2});} return; }
     var b = e.target.closest('[data-dx-action]');
     if (!b || !st.root.contains(b)) return;
     var act = b.getAttribute('data-dx-action');
@@ -5223,6 +5428,7 @@ App.config = {
     var member = App.crew.selected();
     st = { root: root, memberId: member ? member.id : null, iv: false, sig: {}, timer: null, tlTimer: null };
     root.addEventListener('click', onClick);
+    root.addEventListener('change', savePhysicalInput);
     if (!member) {
       root.innerHTML = App.ui.empty('users', 'No crew configured.');
       return;
@@ -5230,13 +5436,14 @@ App.config = {
     var a = getRisk(member.id);
     st.iv = !/^EV/.test(member.role);
     if (st.iv) {
-      root.innerHTML = ivHTML(member) + mentalSectionHTML(member, a);
+      root.innerHTML = ivHTML(member) + mentalSectionHTML(member, a) + physicalSectionHTML(member, null);
     } else {
       var data = getData(member.id);
       root.innerHTML =
         heroHTML(member, a) +
         mentalSectionHTML(member, a) +
         groupSectionHTML('bio', member, a, data) +
+        physicalSectionHTML(member, data) +
         groupSectionHTML('suit', member, a, data) +
         logSectionHTML(member);
       st.sig.findings = findingsSig(a);
@@ -5257,10 +5464,12 @@ App.config = {
       if (!st.iv) {
         updateHero(a);
         updateGroups(member, a, getData(member.id));
+        updatePhysicalValues(member, getData(member.id));
       }
       updateMental(member, a);
     } else if ((evt === 'telemetry' || evt === 'sensor') && mine && !st.iv) {
       updateGroups(member, getRisk(member.id), getData(member.id));
+      updatePhysicalValues(member, getData(member.id));
     } else if (evt === 'checkin' && mine) {
       updateMental(member, getRisk(member.id));
     } else if (evt === 'blackbox' && !st.iv) {
@@ -5271,6 +5480,7 @@ App.config = {
   function destroy() {
     if (!st) return;
     st.root.removeEventListener('click', onClick);
+    st.root.removeEventListener('change', savePhysicalInput);
     clearInterval(st.timer);
     clearTimeout(st.tlTimer);
     st = null;

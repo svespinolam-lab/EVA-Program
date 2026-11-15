@@ -14,6 +14,7 @@ Leyenda: ✅ hecho y con prueba automática · 🟢 verificado además en navega
 | Quitar la **presión arterial inventada** al iniciar | ✅ 🟢 | En el navegador: sin medición, la PA aparece vacía. |
 | **A. Perfil**: ID de tripulante, duración de misión, suplementos, contactos de emergencia; aviso de que el expediente es de ejemplo | ✅ 🟢 | Pantalla Profile. |
 | **E. Ciclo menstrual opcional y privado** (apagado por defecto): inicio de periodo, flujo y síntomas con botones; fase estimada; en fase lútea la estación ajusta los límites de alerta +0,3 °C y +3 lpm. **Solo salen esos dos ajustes anónimos**, nunca fechas, fase ni síntomas. Borrado total en un toque. | ✅ 🟢 | `tools/tests/cycle.test.mjs` (9 pruebas, incluida la privacidad). Menú ≡ → Cycle tracking. |
+| **C. Análisis mensuales visibles**: tarjetas de hemoglobina, leucocitos y plaquetas + botón **Send monthly panel to station** (antes existían en código pero eran inalcanzables). Botón **Pair Bluetooth sensor** visible. | 🟢 | En el navegador: hemoglobina guardada y panel mensual confirmado por la estación (“Monthly clinical panel synced”). |
 | G. Mediciones manuales que sobreviven al cerrar/abrir (Fase 1) + historial de 30 días | ✅ | Prueba de importación y límite de historial. |
 
 Pruebas de la app en CI: `for t in tools/tests/*.test.mjs; do node "$t"; done` (36 pruebas) + 35 pruebas Go.
@@ -22,8 +23,8 @@ Pruebas de la app en CI: `for t in tools/tests/*.test.mjs; do node "$t"; done` (
 
 | Pendiente | Prioridad |
 |---|---|
-| **F. Bluetooth**: botón visible para emparejar, lista de dispositivos, batería, reconexión, procedencia por canal (el adaptador GATT estándar ya existe en `ble.js`). | P1 |
-| **C. Análisis periódicos**: tarjetas de hemoglobina, leucocitos y plaquetas visibles, botón de envío mensual, variación de peso y cumplimiento de ejercicio. | P1 |
+| **F. Bluetooth**: lista de dispositivos, batería, reconexión, procedencia por canal (el adaptador GATT estándar ya existe en `ble.js`). | P1 |
+| **C. Análisis periódicos**: variación de peso automática y cumplimiento de ejercicio. | P1 |
 | Procedencia **por métrica** en lo que se envía a la estación (hoy por paquete, criterio conservador). | P1 |
 | Abrir la app sin red desde cero (service worker). | P1 |
 | Unificar los clasificadores duplicados (config / risk / log / Go). | P2 |

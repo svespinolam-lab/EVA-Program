@@ -520,7 +520,12 @@
       '<summary class="dx-physical-summary"><span class="section__titles"><span class="eyebrow">Daily measurements</span>' +
         '<span class="section__title">12 health indicators</span><span class="section__hint">Manual entries and devices · tap to expand</span></span>' +
         App.icon('chevronRight') + '</summary><div class="section dx-physical-content">' +
-      '<div class="card dx-physical-notice"><b>Sensor connection status</b><p>All 12 parameters remain visible. If a sensor is not paired, its card says so; no missing value is treated as normal. Browser demo streams are simulated, not readings from suit hardware.</p></div><div class="dx-physical-grid">' + PHYSICAL.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div><p class="subtle">Manual entries are stored on this phone only. They are not sent to EVA Station.</p></div></details>';
+      '<div class="card dx-physical-notice"><b>Sensor connection status</b><p>All 12 parameters remain visible. If a sensor is not paired, its card says so; no missing value is treated as normal. Browser demo streams are simulated, not readings from suit hardware.</p></div><div class="st-actions dx-physical-actions">' +
+        '<button type="button" class="btn btn--secondary btn--sm" data-dx-pair-ble>' + App.icon('link') + 'Pair Bluetooth sensor</button>' +
+        '<button type="button" class="btn btn--secondary btn--sm" data-dx-sync-monthly>' + App.icon('download') + 'Send monthly panel to station</button></div>' +
+      '<div class="dx-physical-grid">' + PHYSICAL.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div>' +
+      '<h3 class="section__title dx-labs-title">Monthly blood tests</h3>' +
+      '<div class="dx-physical-grid">' + MONTHLY_LABS.map(function(p){return physicalCard(p,member,data,saved);}).join('') + '</div><p class="subtle">Manual entries are stored on this phone only. They are not sent to EVA Station.</p></div></details>';
   }
   function onPhysicalToggle(e) {
     if (e.target.id === 'dx-physical-complete') physicalOpen = e.target.open;
@@ -553,7 +558,7 @@
     row[key] = input.value === '' ? null : Number(input.value);
     if ((key==='bpSys'||key==='bpDia') && row.bpSys!=null && row.bpDia!=null) row.bpAt=Date.now();
     // Dated, sourced record for the 7-day history (validated; errors shown, value kept for correction)
-    if (App.measurements && input.value !== '') {
+    if (App.measurements && input.value !== '' && (App.measurements.PARAMS[key] || key === 'bpSys' || key === 'bpDia')) {
       var res = (key === 'bpSys' || key === 'bpDia')
         ? (row.bpSys != null && row.bpDia != null ? App.measurements.add(member, 'bp', { sys: row.bpSys, dia: row.bpDia }, { source: 'manual' }) : { ok: true })
         : App.measurements.add(member, key, row[key], { source: 'manual' });

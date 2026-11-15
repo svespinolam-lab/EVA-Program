@@ -204,3 +204,5 @@
 .dx-src[data-src="demo"] { border-style: dashed; color: var(--caution); border-color: var(--caution); }
 .dx-src[data-src="device"] { color: var(--ok); border-color: var(--ok); }
 .dx-7d { width: 72px; height: 20px; fill: var(--accent); }
+.dx-physical-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.dx-labs-title { margin-top: var(--sp-4); }

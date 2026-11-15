@@ -350,6 +350,8 @@
     var item = { type: 'telemetry', crewId: crewId(), seq: ++seq, t: Date.now(), source: event.data.source || 'virtual' };
     App.storage.set('linkSeq', seq);
     FIELDS.forEach(function (k) { if (Number.isFinite(event.data[k])) item[k] = event.data[k]; });
+    // Private cycle module: only anonymous threshold offsets leave the phone (never phase, dates or symptoms)
+    if (App.cycle && App.cycle.isEnabled()) { var adj = App.cycle.adjustments(item.t); if (adj.temp || adj.hr) item.cal = { temp: adj.temp, hr: adj.hr }; }
     outbox.push(item);
     if (outbox.length > 20000) outbox.splice(0, outbox.length - 20000);
     persist();

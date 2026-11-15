@@ -478,6 +478,31 @@
     if (key === 'bp' && saved && saved.bpSys != null && saved.bpDia != null) return saved.bpSys + '/' + saved.bpDia;
     return saved && saved[key] != null && saved[key] !== '' ? saved[key] : null;
   }
+  /* Last dated value, its source, light and a 7-day chart (App.measurements). */
+  function physicalHistory(p, member) {
+    var M = App.measurements;
+    if (!M || !M.PARAMS[p.key]) return '';
+    var last = M.latest(member.id, p.key);
+    var src = !last ? '' : last.src === 'device' ? 'Sensor' + (last.dev ? ' · ' + last.dev : '') : last.src === 'demo' ? 'Demo · not a real sensor' : 'Manual';
+    var lt = last ? M.light(p.key, last.v, member.id) : null;
+    var when = last ? new Date(last.at).toLocaleString('en-US', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    var days = M.daily(member.id, p.key, 7), vals = days.map(function (d) { return d.v; }).filter(function (v) { return v != null; });
+    var chart = '';
+    if (vals.length) {
+      var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), span = hi - lo || 1;
+      chart = '<svg class="dx-7d" viewBox="0 0 70 20" role="img" aria-label="7-day trend">' + days.map(function (d, i) {
+        if (d.v == null) return '';
+        var y = 17 - (d.v - lo) / span * 14;
+        return '<circle cx="' + (5 + i * 10) + '" cy="' + y.toFixed(1) + '" r="2.2"></circle>';
+      }).join('') + '</svg>';
+    }
+    var b = M.baseline(member.id, p.key);
+    return '<p class="dx-hist">' +
+      (last ? '<span class="dx-light" data-light="' + (lt || 'none') + '">' + esc(lt ? lt[0].toUpperCase() + lt.slice(1) : 'No range') + '</span>' +
+        '<span>' + esc(when) + '</span><span class="dx-src" data-src="' + esc(last.src) + '">' + esc(src) + '</span>' : '<span class="subtle">No dated measurement yet</span>') +
+      (chart ? chart + '<span class="subtle">7 days</span>' : '') +
+      (b != null ? '<span class="subtle">Baseline ' + esc(String(b)) + '</span>' : '') + '</p>';
+  }
   function physicalCard(p, member, data, saved) {
     var v = physicalValue(p.key, data, saved);
     var sensorKey = SENSOR_KEYS[p.key];
@@ -487,7 +512,7 @@
     if(p.key==='bp' && saved.bpSys!=null && saved.bpDia!=null) v=Number(saved.bpSys)+'/'+Number(saved.bpDia);
     var value = v == null ? '<span class="dx-missing">No measurement yet</span>' : '<b>' + esc(String(v)) + '</b> <small>' + esc(p.unit) + '</small>';
     var input = p.key === 'bp' ? '<div class="dx-bp-inputs"><label class="field"><span class="field__label">Systolic</span><input class="input" type="number" inputmode="decimal" data-physical-input="bpSys" value="' + esc(saved.bpSys == null ? '' : saved.bpSys) + '" placeholder="mmHg"></label><label class="field"><span class="field__label">Diastolic</span><input class="input" type="number" inputmode="decimal" data-physical-input="bpDia" value="' + esc(saved.bpDia == null ? '' : saved.bpDia) + '" placeholder="mmHg"></label></div>' : (p.source === 'manual' ? '<label class="field"><span class="field__label">Enter value</span><input class="input" type="number" inputmode="decimal" step="any" data-physical-input="' + p.key + '" value="' + esc(saved[p.key] == null ? '' : saved[p.key]) + '" placeholder="Not recorded"></label>' : '');
-    return '<article class="card" data-physical-card="' + p.key + '"><div class="row-between"><b>' + esc(p.label) + '</b><span class="chip" data-tone="' + (sensorKey && status !== 'connected' ? 'warning' : 'accent') + '">' + esc(sourceLabel) + '</span></div><p class="dx-physical-value">' + value + '</p><p class="subtle">' + esc(p.method) + '</p>' + input + '<details><summary>Why it matters · ranges · action</summary><p>' + esc(p.why) + '</p><p>' + esc(PHYSICAL_GUIDANCE[p.key]) + '</p><p class="subtle">Prototype guidance only. Contact the flight surgeon for interpretation.</p></details></article>';
+    return '<article class="card" data-physical-card="' + p.key + '"><div class="row-between"><b>' + esc(p.label) + '</b><span class="chip" data-tone="' + (sensorKey && status !== 'connected' ? 'warning' : 'accent') + '">' + esc(sourceLabel) + '</span></div><p class="dx-physical-value">' + value + '</p>' + physicalHistory(p, member) + '<p class="subtle">' + esc(p.method) + '</p>' + input + '<details><summary>Why it matters · ranges · action</summary><p>' + esc(p.why) + '</p><p>' + esc(PHYSICAL_GUIDANCE[p.key]) + '</p><p class="subtle">Prototype guidance only. Contact the flight surgeon for interpretation.</p></details></article>';
   }
   function physicalSectionHTML(member, data) {
     var saved = manualValues(member.id);
@@ -527,6 +552,13 @@
     var row = Object.assign({}, all[member] || {});
     row[key] = input.value === '' ? null : Number(input.value);
     if ((key==='bpSys'||key==='bpDia') && row.bpSys!=null && row.bpDia!=null) row.bpAt=Date.now();
+    // Dated, sourced record for the 7-day history (validated; errors shown, value kept for correction)
+    if (App.measurements && input.value !== '') {
+      var res = (key === 'bpSys' || key === 'bpDia')
+        ? (row.bpSys != null && row.bpDia != null ? App.measurements.add(member, 'bp', { sys: row.bpSys, dia: row.bpDia }, { source: 'manual' }) : { ok: true })
+        : App.measurements.add(member, key, row[key], { source: 'manual' });
+      if (!res.ok) { App.ui.toast(res.error, { icon: 'info' }); return; }
+    }
     all[member] = row;
     App.store.set({physicalManual:all});
     updatePhysicalValues(App.crew.byId(member),getData(member));

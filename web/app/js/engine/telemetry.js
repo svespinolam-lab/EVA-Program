@@ -104,11 +104,10 @@
     };
     LIVE_KEYS.forEach(function (k) { sim.sensors[k] = 'disconnected'; sim.hist[k] = []; });
 
-    // Blood pressure measured 20 minutes ago near baseline
-    var sys = Math.round((b.bpSys || 120) + 2 + gauss() * 2);
-    var dia = Math.round((b.bpDia || 78) + 1 + gauss() * 1.5);
-    sim.bp = { bpSys: sys, bpDia: dia, bpAt: Date.now() - 20 * 60000 };
-    sim.hist.bp = [sys];
+    // No blood pressure until a cuff or a manual entry provides one (an
+    // invented "20 minutes ago" reading used to be shown as if real).
+    sim.bp = null;
+    sim.hist.bp = [];
     return sim;
   }
 
@@ -231,6 +230,8 @@
     Object.keys(sims).forEach(function (id) {
       step(sims[id], dt, false);
       App.bus.emit('telemetry', { crewId: id, data: api.latest(id) });
+      // 7-day trend of the continuous parameters (one point / 5 min, tagged demo or device)
+      if (App.measurements) App.measurements.sampleLive(id, api.latest(id));
     });
     Object.keys(remotes).forEach(function (id) {
       var fresh = remoteFresh(id);

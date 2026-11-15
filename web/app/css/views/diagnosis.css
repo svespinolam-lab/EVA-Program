@@ -193,3 +193,14 @@
 
 .dx-bp-inputs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-2); }
 .dx-physical-notice .btn { margin-top:10px; }
+/* Dated history of each physical parameter (App.measurements) */
+.dx-hist { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-sm); color: var(--text-2); margin: 2px 0 6px; }
+.dx-light { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.dx-light::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); }
+.dx-light[data-light="green"]::before { background: var(--ok); }
+.dx-light[data-light="yellow"]::before { background: var(--caution); }
+.dx-light[data-light="red"]::before { background: var(--critical); }
+.dx-src { padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-strong); font-size: var(--fs-xs); }
+.dx-src[data-src="demo"] { border-style: dashed; color: var(--caution); border-color: var(--caution); }
+.dx-src[data-src="device"] { color: var(--ok); border-color: var(--ok); }
+.dx-7d { width: 72px; height: 20px; fill: var(--accent); }

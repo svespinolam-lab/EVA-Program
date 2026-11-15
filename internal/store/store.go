@@ -44,6 +44,10 @@ type Store struct {
 	flushReq chan chan struct{}
 	done     chan struct{}
 
+	// SchemaFrom / SchemaTo: schema version found on disk and after the
+	// migrations run by Open (equal when nothing had to be migrated).
+	SchemaFrom, SchemaTo int
+
 	// OnCommit is called after each telemetry batch is committed with the
 	// highest device sequence stored per crew member (store-and-forward ack).
 	OnCommit func(maxSeq map[string]int64)
@@ -75,7 +79,22 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	w.SetMaxOpenConns(1)
-	if _, err := w.Exec(schemaSQL); err != nil {
+	// Safety copy before changing the schema of an existing database.
+	var cur, tables int
+	_ = w.QueryRow(`PRAGMA user_version`).Scan(&cur)
+	_ = w.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'`).Scan(&tables)
+	if tables > 0 && cur < LatestSchema {
+		dir := filepath.Join(filepath.Dir(path), "backups")
+		if err := os.MkdirAll(dir, 0o755); err == nil {
+			snap := filepath.Join(dir, fmt.Sprintf("eva-pre-migration-v%d-%s.db", cur, time.Now().UTC().Format("20060102T150405Z")))
+			if _, err := w.Exec(`VACUUM INTO ?`, snap); err != nil {
+				w.Close()
+				return nil, fmt.Errorf("pre-migration backup: %w", err)
+			}
+		}
+	}
+	from, to, err := migrate(w)
+	if err != nil {
 		w.Close()
 		return nil, fmt.Errorf("schema: %w", err)
 	}
@@ -86,7 +105,8 @@ func Open(path string) (*Store, error) {
 	}
 	r.SetMaxOpenConns(4)
 
-	s := &Store{W: w, R: r, telCh: make(chan telRow, 4096), flushReq: make(chan chan struct{}), done: make(chan struct{})}
+	s := &Store{W: w, R: r, telCh: make(chan telRow, 4096), flushReq: make(chan chan struct{}), done: make(chan struct{}),
+		SchemaFrom: from, SchemaTo: to}
 	s.lastHash = "GENESIS"
 	_ = s.R.QueryRow(`SELECT hash FROM blackbox_chain ORDER BY id DESC LIMIT 1`).Scan(&s.lastHash)
 	go s.runWriter()
@@ -113,8 +133,8 @@ func nullStr(v string) any {
    ===================================================================== */
 
 const insertTelemetry = `INSERT OR IGNORE INTO telemetry
- (mission_id, crew_id, ts, hr, spo2, temp, rr, hrv, rad_rate, effort, suit_p, o2_min, co2, batt, bp_sys, bp_dia, ipv, status, source, seq)
- VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+ (mission_id, crew_id, ts, hr, spo2, temp, rr, hrv, rad_rate, effort, suit_p, o2_min, co2, batt, bp_sys, bp_dia, ipv, status, source, seq, event_id)
+ VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 // AddTelemetry queues one evaluated sample for the batching writer.
 func (s *Store) AddTelemetry(sm model.Sample, mission string, ipv int, status, source string) {
@@ -146,7 +166,7 @@ func (s *Store) runWriter() {
 				for _, r := range buf {
 					m := r.s
 					if _, err := stmt.Exec(nullStr(r.mission), m.CrewID, m.T, m.HR, m.SpO2, m.Temp, m.RR, m.HRV, m.Rad, m.Effort,
-						m.SuitP, m.O2, m.CO2, m.Batt, m.BPSys, m.BPDia, r.ipv, r.status, r.source, nullSeq(m.Seq)); err != nil {
+						m.SuitP, m.O2, m.CO2, m.Batt, m.BPSys, m.BPDia, r.ipv, r.status, r.source, nullSeq(m.Seq), nullStr(m.EventID)); err != nil {
 						fmt.Fprintln(os.Stderr, "telemetry insert:", err)
 					}
 					if m.Seq > maxSeq[m.CrewID] {

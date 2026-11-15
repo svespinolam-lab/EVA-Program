@@ -41,6 +41,10 @@ type Sample struct {
 	BPDia     *float64 `json:"bpDia,omitempty"`
 	Cal       *Calib   `json:"cal,omitempty"`
 	Source    string   `json:"source,omitempty"` // device | virtual | replay
+	// EventID uniquely identifies a reading ("<device id>:<sequence>"),
+	// set by the station for paired phones; with (crew, t) it makes
+	// store-and-forward replays idempotent.
+	EventID string `json:"eid,omitempty"`
 }
 
 // Crew is one astronaut. Role: EV1/EV2/EV3 go outside, IV stays inside.

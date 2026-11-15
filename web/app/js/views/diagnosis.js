@@ -471,10 +471,10 @@
     var v = physicalValue(p.key, data, saved);
     var sensorKey = SENSOR_KEYS[p.key];
     var status = sensorKey && App.telemetry && App.telemetry.status ? App.telemetry.status(member.id, sensorKey) : '';
-    var simulated = sensorKey && !App.link?.isLinked?.();
+    var simulated = sensorKey && !(App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(member.id,sensorKey));
     var sourceLabel = sensorKey ? (status === 'connected' ? (simulated ? 'Demo stream · hardware not paired' : 'Sensor connected') : 'Sensor not connected') : 'Manual entry / external device';
-    var value = v == null ? '<span class="dx-missing">No measurement yet</span>' : '<b>' + esc(String(v)) + '</b> <small>' + esc(p.unit) + '</small>';
-    var input = p.source === 'manual' ? '<label class="field"><span class="field__label">Enter value</span><input class="input" type="number" inputmode="decimal" step="any" data-physical-input="' + p.key + '" value="' + esc(saved[p.key] == null ? '' : saved[p.key]) + '" placeholder="Not recorded"></label>' : '';
+    if(p.key==='bp' && saved.bpSys!=null && saved.bpDia!=null) v=Number(saved.bpSys)+'/'+Number(saved.bpDia);\n    var value = v == null ? '<span class="dx-missing">No measurement yet</span>' : '<b>' + esc(String(v)) + '</b> <small>' + esc(p.unit) + '</small>';
+    var input = p.key === 'bp' ? '<div class="dx-bp-inputs"><label class="field"><span class="field__label">Systolic</span><input class="input" type="number" inputmode="decimal" data-physical-input="bpSys" value="' + esc(saved.bpSys == null ? '' : saved.bpSys) + '" placeholder="mmHg"></label><label class="field"><span class="field__label">Diastolic</span><input class="input" type="number" inputmode="decimal" data-physical-input="bpDia" value="' + esc(saved.bpDia == null ? '' : saved.bpDia) + '" placeholder="mmHg"></label></div>' : (p.source === 'manual' ? '<label class="field"><span class="field__label">Enter value</span><input class="input" type="number" inputmode="decimal" step="any" data-physical-input="' + p.key + '" value="' + esc(saved[p.key] == null ? '' : saved[p.key]) + '" placeholder="Not recorded"></label>' : '');
     return '<article class="card" data-physical-card="' + p.key + '"><div class="row-between"><b>' + esc(p.label) + '</b><span class="chip" data-tone="' + (sensorKey && status !== 'connected' ? 'warning' : 'accent') + '">' + esc(sourceLabel) + '</span></div><p class="dx-physical-value">' + value + '</p><p class="subtle">' + esc(p.method) + '</p>' + input + '<details><summary>Why it matters · ranges · action</summary><p>' + esc(p.why) + '</p><p>' + esc(PHYSICAL_GUIDANCE[p.key]) + '</p><p class="subtle">Prototype guidance only. Contact the flight surgeon for interpretation.</p></details></article>';
   }
   function physicalSectionHTML(member, data) {
@@ -493,7 +493,7 @@
       var chip=card.querySelector('.chip');
       if (chip) {
         var key=SENSOR_KEYS[p.key], status=key&&App.telemetry&&App.telemetry.status?App.telemetry.status(member.id,key):'';
-        var demo=key&&!App.link?.isLinked?.();
+        var demo=key&&!(App.telemetry&&App.telemetry.isHardwareConnected&&App.telemetry.isHardwareConnected(member.id,key));
         chip.textContent=key?(status==='connected'?(demo?'Demo stream · hardware not paired':'Sensor connected'):'Sensor not connected'):'Manual entry / external device';
         chip.setAttribute('data-tone',key&&status!=='connected'?'warning':'accent');
       }
@@ -617,7 +617,7 @@
 
   function onClick(e) {
     if (!st) return;
-    var b = e.target.closest('[data-dx-action]');
+    var pair = e.target.closest('[data-dx-pair-ble]');\n    if(pair){ if(!App.ble){App.ui.toast('Bluetooth adapter unavailable',{icon:'unlink',level:2});return;} App.ble.pair(st.memberId).catch(function(err){App.ui.toast(err.message,{icon:'unlink',level:2});}); return; }\n    var b = e.target.closest('[data-dx-action]');
     if (!b || !st.root.contains(b)) return;
     var act = b.getAttribute('data-dx-action');
     if (act === 'listen') listen();

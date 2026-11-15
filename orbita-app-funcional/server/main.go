@@ -144,7 +144,7 @@ func operatorAuth(r *http.Request) bool {
 
 func main(){
  initDB()
- http.HandleFunc("/app/",http.StripPrefix("/app/",http.FileServer(http.Dir("."))))
+ http.Handle("/app/",http.StripPrefix("/app/",http.FileServer(http.Dir("."))))
  http.HandleFunc("/",func(w http.ResponseWriter,r *http.Request){if r.URL.Path!="/" {http.NotFound(w,r);return};http.ServeFile(w,r,"dashboard/index.html")})
  http.HandleFunc("/ws/monitor",ws)
  http.HandleFunc("/api/premission/ranking",func(w http.ResponseWriter,r *http.Request){rows,e:=db.Query(`SELECT p.astronauta_id,p.traffic_light,p.vulnerability,p.summary,p.ts FROM premission_checks p WHERE p.id=(SELECT MAX(p2.id) FROM premission_checks p2 WHERE p2.astronauta_id=p.astronauta_id) ORDER BY p.vulnerability DESC`);if e!=nil{http.Error(w,e.Error(),500);return};defer rows.Close();out:=[]map[string]any{};for rows.Next(){var id,light,summary,ts string;var vuln int;rows.Scan(&id,&light,&vuln,&summary,&ts);out=append(out,map[string]any{"astronauta_id":id,"semaforo_go_nogo":light,"indice_vulnerabilidad":vuln,"resumen_seguro_pc":summary,"timestamp":ts})};json.NewEncoder(w).Encode(out)})

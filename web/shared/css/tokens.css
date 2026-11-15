@@ -1,0 +1,160 @@
+/* =====================================================================
+   EVA · SHARED DESIGN TOKENS  (mobile app + EVA Station on the PC)
+   ---------------------------------------------------------------------
+   Single source of colours, type, spacing, shape and motion for BOTH
+   programs, so they read as one system. Change a value here and it
+   changes in the phone app and in the PC program.
+
+   Identity: inspired by the institutional aerospace language (blue
+   #0B3D91, red #FC3D21, deep navy #061A36, space grey #F2F4F7,
+   technical grey #687386) with EVA's own caduceus-and-orbit logo.
+   No official NASA logos, names or insignia are used.
+
+   Themes
+     Light (default) ........ white surfaces on space grey, mission blue
+     Dark "cabin mode" ...... deep navy for a dim cabin at night
+   Select with data-theme="light" | "dark" on <html>. Without the
+   attribute the system preference is followed.
+
+   Golden rule: risk colours (ok / caution / warning / critical) only
+   communicate STATE. Mission blue is for what you can press. Red never
+   decorates the interface (only the logo carries it).
+   ===================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---------- Brand (never used for risk) ---------- */
+  --brand-blue:    #0B3D91;   /* mission blue */
+  --brand-navy:    #061A36;   /* deep navy: result bands, splash */
+  --brand-red:     #FC3D21;   /* logo only; alerts use --critical */
+  --brand-grey:    #687386;   /* technical grey: inactive icons */
+
+  /* ---------- Neutrals ---------- */
+  --bg:            #F2F4F7;   /* space grey: app background */
+  --bg-deep:       #E6EAF0;
+  --surface:       #FFFFFF;   /* cards, bars */
+  --surface-2:     #EEF1F6;   /* controls, tiles */
+  --surface-3:     #E1E7F0;   /* selected / pressed */
+  --line:          rgba(6, 26, 54, 0.10);
+  --line-strong:   rgba(6, 26, 54, 0.20);
+  --text:          #061A36;   /* 16:1 on --bg */
+  --text-2:        #3A4659;   /* secondary */
+  --text-3:        #5B6678;   /* labels: ≥ 5.1:1 on every surface */
+  --on-accent:     #FFFFFF;
+
+  /* ---------- Accent: mission blue (interactive) ---------- */
+  --accent:        #0B3D91;   /* 10:1 on white */
+  --accent-strong: #0B3D91;
+  --accent-soft:   rgba(11, 61, 145, 0.09);
+
+  /* ---------- Risk (semantic, separate from the accent) ---------- */
+  --ok:            #097555;   --ok-soft:       rgba(10, 132, 96, 0.11);
+  --caution:       #8B5F00;   --caution-soft:  rgba(196, 140, 0, 0.14);
+  --warning:       #AB4808;   --warning-soft:  rgba(214, 100, 20, 0.13);
+  --critical:      #C8250E;   --critical-soft: rgba(252, 61, 33, 0.11);   /* text 5.6:1 */
+  --offline:       #5B6678;   --offline-soft:  rgba(91, 102, 120, 0.12);
+
+  /* ---------- Layers ---------- */
+  --scrim:         rgba(6, 26, 54, 0.45);
+  --glass:         rgba(255, 255, 255, 0.90);
+  --shadow-1:      0 1px 2px rgba(6, 26, 54, 0.06), 0 6px 18px rgba(6, 26, 54, 0.06);
+  --shadow-2:      0 18px 48px rgba(6, 26, 54, 0.16);
+  --star:          rgba(11, 61, 145, 0.30);
+
+  /* ---------- Type: Helvetica Neue first, Inter / Arial as fallback ---------- */
+  --font-display:  "Helvetica Neue", Helvetica, Inter, Arial, system-ui, sans-serif;
+  --font-body:     "Helvetica Neue", Helvetica, Inter, Arial, system-ui, sans-serif;
+  --font-mono:     "DM Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;   /* every figure */
+
+  --fs-xs:   0.75rem;    /* 12  mono labels */
+  --fs-sm:   0.875rem;   /* 14  supporting text */
+  --fs-md:   1rem;       /* 16  body */
+  --fs-lg:   1.125rem;   /* 18  card titles */
+  --fs-xl:   1.375rem;   /* 22  screen title */
+  --fs-2xl:  1.75rem;    /* 28  medium values */
+  --fs-3xl:  2.5rem;     /* 40  sensor values */
+  --fs-4xl:  3.25rem;    /* 52  risk index */
+
+  --lh-tight: 1.1;
+  --lh-snug:  1.3;
+  --lh-body:  1.5;
+  --tracking-label: 0.09em;
+  --tracking-title: -0.015em;
+
+  /* ---------- Spacing (8-pt grid, 4-pt half steps) ---------- */
+  --sp-1: 0.25rem;  --sp-2: 0.5rem;  --sp-3: 0.75rem;  --sp-4: 1rem;   --sp-5: 1.25rem;
+  --sp-6: 1.5rem;   --sp-8: 2rem;    --sp-10: 2.5rem;  --sp-12: 3rem;
+
+  /* ---------- Shape: cards 16 · controls 12–14 · pills ---------- */
+  --r-xs:   6px;
+  --r-sm:   12px;
+  --r-md:   14px;
+  --r-lg:   16px;
+  --r-pill: 999px;
+  --stroke: 1px;
+
+  /* ---------- Motion ---------- */
+  --ease:      cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast:  140ms;
+  --dur:       220ms;
+  --dur-slow:  420ms;
+
+  /* ---------- Phone layout ---------- */
+  --app-max:   480px;
+  --header-h:  64px;
+  --crew-h:    64px;
+  --nav-h:     64px;
+  --tap:       44px;
+
+  /* ---------- PC layout ---------- */
+  --side-w:    232px;
+  --top-h:     60px;
+
+  /* ---------- Layers (z-index) ---------- */
+  --z-header: 20;
+  --z-nav:    30;
+  --z-drawer: 50;
+  --z-sheet:  60;
+  --z-toast:  70;
+  --z-splash: 100;
+}
+
+/* ---------- Dark "cabin mode": chosen in the app / station ---------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #071630; --bg-deep: #040D1F; --surface: #0C1F3E; --surface-2: #12284D; --surface-3: #1A345F;
+  --line: rgba(150, 178, 222, 0.14); --line-strong: rgba(150, 178, 222, 0.28);
+  --text: #EDF2FA; --text-2: #B3C0D6; --text-3: #8798B5; --on-accent: #FFFFFF;
+  --accent: #7FA9F2; --accent-strong: #2F6FEB; --accent-soft: rgba(127, 169, 242, 0.15);
+  --ok: #3DD6A3; --ok-soft: rgba(61, 214, 163, 0.14);
+  --caution: #F4C552; --caution-soft: rgba(244, 197, 82, 0.15);
+  --warning: #FF9147; --warning-soft: rgba(255, 145, 71, 0.16);
+  --critical: #FF5A44; --critical-soft: rgba(255, 90, 68, 0.17);
+  --offline: #8798B5; --offline-soft: rgba(135, 152, 181, 0.14);
+  --scrim: rgba(2, 6, 14, 0.64); --glass: rgba(12, 31, 62, 0.86);
+  --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.035) inset, 0 6px 20px rgba(0, 0, 0, 0.24);
+  --shadow-2: 0 18px 48px rgba(0, 0, 0, 0.5);
+  --star: rgba(220, 232, 255, 0.85);
+}
+
+/* ---------- System preference when no theme was chosen ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #071630; --bg-deep: #040D1F; --surface: #0C1F3E; --surface-2: #12284D; --surface-3: #1A345F;
+    --line: rgba(150, 178, 222, 0.14); --line-strong: rgba(150, 178, 222, 0.28);
+    --text: #EDF2FA; --text-2: #B3C0D6; --text-3: #8798B5; --on-accent: #FFFFFF;
+    --accent: #7FA9F2; --accent-strong: #2F6FEB; --accent-soft: rgba(127, 169, 242, 0.15);
+    --ok: #3DD6A3; --ok-soft: rgba(61, 214, 163, 0.14);
+    --caution: #F4C552; --caution-soft: rgba(244, 197, 82, 0.15);
+    --warning: #FF9147; --warning-soft: rgba(255, 145, 71, 0.16);
+    --critical: #FF5A44; --critical-soft: rgba(255, 90, 68, 0.17);
+    --offline: #8798B5; --offline-soft: rgba(135, 152, 181, 0.14);
+    --scrim: rgba(2, 6, 14, 0.64); --glass: rgba(12, 31, 62, 0.86);
+    --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.035) inset, 0 6px 20px rgba(0, 0, 0, 0.24);
+    --shadow-2: 0 18px 48px rgba(0, 0, 0, 0.5);
+    --star: rgba(220, 232, 255, 0.85);
+  }
+}

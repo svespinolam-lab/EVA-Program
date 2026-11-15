@@ -1,0 +1,61 @@
+/* =====================================================================
+   EVA STATION · printable reports (post-EVA, black box, monthly)
+   Uses the shared tokens; always printed in the light theme.
+   ===================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+body.report { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; line-height: 1.5; }
+.report__bar { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 24px; background: var(--surface); border-bottom: 1px solid var(--line); z-index: 2; }
+.report__back { color: var(--accent); text-decoration: none; font-weight: 600; }
+.report__print { background: var(--accent-strong); color: var(--on-accent); border: 0; border-radius: 999px; padding: 10px 18px; font: 600 14px var(--font-display); cursor: pointer; }
+.report__page { max-width: 1040px; margin: 24px auto; padding: 36px 44px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.report__head { display: flex; gap: 18px; align-items: center; padding-bottom: 18px; border-bottom: 3px solid var(--brand-blue); margin-bottom: 20px; }
+.report__head img { border-radius: 50%; }
+.report__titles h1 { margin: 2px 0; font: 700 26px/1.2 var(--font-display); letter-spacing: -0.01em; }
+.report__sub { margin: 0; color: var(--text-2); }
+h2 { font: 600 17px/1.3 var(--font-display); margin: 28px 0 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.eyebrow { margin: 0; font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-2); }
+.hint { color: var(--text-3); font-size: 12.5px; margin: 6px 0 10px; }
+[data-level="0"] { --lvl: var(--ok); --lvl-soft: var(--ok-soft); }
+[data-level="1"] { --lvl: var(--caution); --lvl-soft: var(--caution-soft); }
+[data-level="2"] { --lvl: var(--warning); --lvl-soft: var(--warning-soft); }
+[data-level="3"] { --lvl: var(--critical); --lvl-soft: var(--critical-soft); }
+.lvl { color: var(--lvl, inherit); font-weight: 600; }
+.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.stat { padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid transparent; }
+.stat[data-level] { background: var(--lvl-soft); border-color: var(--lvl); }
+.stat__v { margin: 4px 0 0; font-size: 17px; font-weight: 600; }
+.note { padding: 10px 14px; border-radius: 12px; background: var(--lvl-soft, var(--surface-2)); border: 1px solid var(--lvl, var(--line)); margin: 0 0 14px; overflow-wrap: anywhere; }
+.flag { margin: 6px 0; padding: 10px 14px; border-radius: 12px; background: var(--lvl-soft); border-left: 4px solid var(--lvl); }
+.flag b { color: var(--lvl); }
+.card { padding: 14px 16px; border-radius: 12px; border: 1px solid var(--lvl, var(--line)); background: var(--lvl-soft, var(--surface)); }
+.card p { margin: 4px 0; }
+.steps { margin: 8px 0 0; padding-left: 20px; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { text-align: left; font: 500 10.5px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); padding: 8px 10px; background: var(--surface-2); }
+.tbl td { padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+.tbl .r { text-align: right; white-space: nowrap; }
+.tbl a { color: var(--accent); }
+.log { list-style: none; margin: 0; padding: 0; }
+.log li { display: grid; grid-template-columns: 80px 150px 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.log__who { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); }
+.months { display: flex; gap: 8px; margin-bottom: 8px; }
+.months a { padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--accent); text-decoration: none; font-family: var(--font-mono); font-size: 12px; }
+.chart { margin: 8px 0; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart__band { fill: var(--ok-soft); }
+.chart__line { fill: none; stroke: var(--brand-blue); stroke-width: 1.6; stroke-linejoin: round; }
+.chart__event { stroke: var(--critical); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.chart__eventlabel { fill: var(--critical); font: 600 11px var(--font-mono); }
+.chart__title { fill: var(--text-2); font: 600 12px var(--font-display); }
+.chart__axis, .chart__empty { fill: var(--text-3); font: 10.5px var(--font-mono); }
+.report__foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--text-3); font-size: 11.5px; }
+@media (max-width: 760px) { .report__page { padding: 20px; margin: 0; border-radius: 0; } .grid4 { grid-template-columns: repeat(2, 1fr); } }
+@media print {
+  .no-print { display: none !important; }
+  body.report { background: #fff; }
+  .report__page { margin: 0; padding: 0; border: 0; max-width: none; }
+  h2 { break-after: avoid; }
+  tr, .chart, .card, .flag { break-inside: avoid; }
+}

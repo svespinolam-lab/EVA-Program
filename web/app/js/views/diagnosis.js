@@ -1,0 +1,613 @@
+/* EVA · Diagnosis for the selected crew member: summary and findings; mental check-in; physical health versus pre-mission baseline; suit readings versus nominal ranges; recent blackbox incidents. IV crew see mental health only. Live updates preserve focus and scroll. Styles: css/views/diagnosis.css (.dx-). */
+(function () {
+  'use strict';
+  var App = window.App = window.App || {};
+  App.views = App.views || {};
+  var C = App.config;
+
+  /* Human-readable level summaries (0..3) */
+  var POSTURE = ['No risk detected', 'Monitor closely', 'Act soon', 'Act now'];
+  var GROUP_LABEL = { bio: 'Physical health', suit: 'Suit', mental: 'Mental health', link: 'Link' };
+  var GROUP_OK = { bio: 'Vital signs in range.', suit: 'Life support in range.' };
+  var MENTAL_OK = 'No signs of fatigue or stress.';
+
+  var st = null;   // State while the view is open
+
+  /* Utilities */
+  function esc(s) { return App.dom.esc(s); }
+  function isNum(v) { return typeof v === 'number' && !isNaN(v); }
+  function lvlAttr(l) { return App.ui.lvlAttr(l); }
+  function toMs(t) { return typeof t === 'number' ? t : (t ? Date.parse(t) : NaN); }
+  function agoText(t) { var ms = toMs(t); return isNum(ms) ? App.fmt.ago(ms) : '—'; }
+  function timeText(t) { var ms = toMs(t); return isNum(ms) ? App.fmt.time(ms) : '—'; }
+  function q(sel) { return st ? st.root.querySelector(sel) : null; }
+  function setText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
+  function setHTML(el, html) {
+    if (el && el._dxHTML !== html) { el.innerHTML = html; el._dxHTML = html; }
+  }
+  function withPeriod(s) { s = String(s || ''); return /[.!?…]$/.test(s) ? s : s + '.'; }
+  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  /* Signed difference: +18, −0.4, ±0 */
+  function signed(n, d) {
+    if (!isNum(n)) return '—';
+    var r = Number(n.toFixed(d || 0));
+    if (r === 0) return '±0';
+    return (r > 0 ? '+' : '−') + App.fmt.num(Math.abs(r), d || 0);
+  }
+
+  /* Engine data with fallbacks for missing modules */
+  function getRisk(id) {
+    try { return App.risk && App.risk.get ? App.risk.get(id) : null; } catch (e) { return null; }
+  }
+  function getData(id) {
+    try { return App.telemetry && App.telemetry.latest ? App.telemetry.latest(id) : null; } catch (e) { return null; }
+  }
+  function isConnected(id, key) {
+    if (!App.telemetry || typeof App.telemetry.isConnected !== 'function') return true;
+    try { return App.telemetry.isConnected(id, key) !== false; } catch (e) { return true; }
+  }
+  function metricValue(key, data, id) {
+    if (!data) return null;
+    if (key === 'bp') return isNum(data.bpSys) ? data.bpSys : null;   // On demand: use the latest measurement
+    if (!isConnected(id, key)) return null;
+    return isNum(data[key]) ? data[key] : null;
+  }
+  function activeFindings(a) {
+    return (a && a.findings ? a.findings : []).filter(function (f) { return f && isNum(f.level) && f.level >= 1; });
+  }
+  function findingFor(a, key) {
+    return activeFindings(a).filter(function (f) { return f.key === key; })[0] || null;
+  }
+  /* Metric level from configured thresholds and engine findings */
+  function rowLevel(key, value, a) {
+    if (value === null) return null;
+    var l = App.levels.classify(key, value);
+    var f = findingFor(a, key);
+    if (f && (l === null || f.level > l)) l = f.level;
+    return l;
+  }
+
+  /* 1 · Summary */
+  function heroTitle(a) {
+    if (!a || !isNum(a.level)) return 'No suit data';
+    return POSTURE[a.level] || App.levels.meta(a.level).label;
+  }
+  function summaryText(a) {
+    if (!a) return 'Waiting for the first suit reading.';
+    return a.summary || (isNum(a.level) ? App.levels.meta(a.level).label : 'No suit signal.');
+  }
+  function updatedText(a) {
+    if (!a) return 'Waiting for data';
+    return a.updatedAt ? 'Updated ' + agoText(a.updatedAt) : 'Live';
+  }
+  function countText(a) {
+    var n = activeFindings(a).length;
+    return n === 0 ? 'None' : n === 1 ? '1 active' : n + ' active';
+  }
+
+  function findingHTML(f) {
+    var meta = App.levels.meta(f.level);
+    var group = GROUP_LABEL[f.group];
+    var since = toMs(f.since);
+    return '<div class="finding" data-level="' + lvlAttr(f.level) + '" data-key="' + esc(f.key) + '">' +
+      '<span class="finding__icon">' + App.icon(meta.icon) + '</span>' +
+      '<div class="finding__text">' +
+        '<p class="finding__title">' + esc(f.message || f.label || 'Finding') + '</p>' +
+        (f.advice ? '<p class="finding__detail">' + esc(f.advice) + '</p>' : '') +
+        '<p class="dx-finding__meta"><b>' + esc(meta.short) + '</b>' +
+          (group ? ' · ' + esc(group) : '') +
+          (isNum(since) ? ' · since ' + esc(App.fmt.time(since)) : '') + '</p>' +
+      '</div>' +
+      (f.valueText ? '<span class="finding__value" data-dx-val>' + esc(f.valueText) + '</span>' : '') +
+      '</div>';
+  }
+  function noDataHTML() {
+    return '<div class="dx-allclear" data-level="off">' +
+      '<span class="finding__icon">' + App.icon('unlink') + '</span>' +
+      '<div class="finding__text">' +
+        '<p class="finding__title">No suit data</p>' +
+        '<p class="finding__detail">Connect sensors in Log to assess risk.</p>' +
+        '<button type="button" class="btn btn--ghost" id="dx-go-log" data-dx-action="log">Go to Log' + App.icon('chevronRight') + '</button>' +
+      '</div></div>';
+  }
+  function allClearHTML() {
+    return '<div class="dx-allclear" data-level="0">' +
+      '<span class="finding__icon">' + App.icon('check') + '</span>' +
+      '<div class="finding__text">' +
+        '<p class="finding__title">All in range</p>' +
+        '<p class="finding__detail">All readings are within nominal limits.</p>' +
+      '</div></div>';
+  }
+  function findingsHTML(a) {
+    var list = activeFindings(a);
+    if (list.length) return '<div class="dx-findings">' + list.map(findingHTML).join('') + '</div>';
+    if (!a || !isNum(a.level)) return noDataHTML();
+    return allClearHTML();
+  }
+  function findingsSig(a) {
+    return (a && isNum(a.level) ? 'd' : 'n') + '#' + activeFindings(a).map(function (f) {
+      return [f.key, f.level, f.message, f.advice, !!f.valueText, f.since].join(':');
+    }).join('|');
+  }
+
+  function heroHTML(member, a) {
+    var lvl = a && isNum(a.level) ? a.level : null;
+    var score = a && isNum(a.score) ? a.score : 0;
+    return '<section class="card dx-hero" id="dx-hero" data-level="' + lvlAttr(lvl) + '" aria-labelledby="dx-hero-title">' +
+      '<div class="dx-hero__top">' +
+        '<p class="eyebrow dx-hero__who">' + esc(member.role + ' · ' + member.name) + '</p>' +
+        '<p class="dx-updated" id="dx-updated">' + esc(updatedText(a)) + '</p>' +
+      '</div>' +
+      '<div class="dx-hero__main">' +
+        '<div id="dx-ring">' + App.ui.ring(score, lvl, 'score') + '</div>' +
+        '<div class="dx-hero__text">' +
+          '<span id="dx-badge">' + App.ui.badge(lvl) + '</span>' +
+          '<h2 class="dx-hero__label" id="dx-hero-title">' + esc(heroTitle(a)) + '</h2>' +
+          '<p class="dx-hero__summary" id="dx-summary">' + esc(summaryText(a)) + '</p>' +
+        '</div>' +
+      '</div>' +
+      '<button type="button" class="btn btn--secondary btn--block" id="dx-listen" data-dx-action="listen">' +
+        App.icon('volume') + 'Hear diagnosis</button>' +
+      '<hr class="divider">' +
+      '<div class="dx-sub"><p class="eyebrow">Active findings</p><p class="dx-count" id="dx-count">' + esc(countText(a)) + '</p></div>' +
+      '<div id="dx-findings">' + findingsHTML(a) + '</div>' +
+      '</section>';
+  }
+
+  function updateRing(a) {
+    var host = q('#dx-ring');
+    if (!host) return;
+    var lvl = a && isNum(a.level) ? a.level : null;
+    var score = a && isNum(a.score) ? Math.max(0, Math.min(100, a.score)) : 0;
+    var ring = host.querySelector('.ring');
+    var arc = ring && ring.querySelector('.ring__value');
+    if (!arc) { host.innerHTML = App.ui.ring(score, lvl, 'score'); return; }
+    ring.setAttribute('data-level', lvlAttr(lvl));
+    var c = parseFloat(arc.getAttribute('stroke-dasharray')) || 2 * Math.PI * 56;
+    arc.style.strokeDashoffset = (c * (1 - score / 100)).toFixed(1);   // Inline style animates the transition
+    setText(ring.querySelector('.ring__num'), String(Math.round(score)));
+  }
+
+  function updateHero(a) {
+    var hero = q('#dx-hero');
+    if (!hero) return;
+    var lvl = a && isNum(a.level) ? a.level : null;
+    var la = lvlAttr(lvl);
+    if (hero.getAttribute('data-level') !== la) hero.setAttribute('data-level', la);
+    updateRing(a);
+    setHTML(q('#dx-badge'), App.ui.badge(lvl));
+    setText(q('#dx-hero-title'), heroTitle(a));
+    setText(q('#dx-summary'), summaryText(a));
+    setText(q('#dx-updated'), updatedText(a));
+    setText(q('#dx-count'), countText(a));
+
+    var sig = findingsSig(a);
+    if (sig !== st.sig.findings) {
+      st.sig.findings = sig;
+      setHTML(q('#dx-findings'), findingsHTML(a));
+      return;
+    }
+    // Same findings: update live values only
+    var byKey = {};
+    activeFindings(a).forEach(function (f) { byKey[f.key] = f; });
+    Array.prototype.forEach.call(st.root.querySelectorAll('#dx-findings .finding'), function (row) {
+      var f = byKey[row.getAttribute('data-key')];
+      if (f) setText(row.querySelector('[data-dx-val]'), f.valueText || '');
+    });
+  }
+
+  /* 2 · Mental health */
+  /* Fallback check-in rules when the risk engine is unavailable */
+  function localMental(c) {
+    var notes = [];
+    if (c.mood === 0) notes.push('low mood');
+    if (c.energy === 0) notes.push('low energy');
+    if (isNum(c.sleepMin) && c.sleepMin < C.mental.sleep.recommendedMin) notes.push('less sleep than recommended');
+    return {
+      level: notes.length >= 3 ? 2 : notes.length ? 1 : 0,
+      text: notes.length ? capitalize(notes.join(', ')) + '.' : MENTAL_OK,
+    };
+  }
+
+  function mentalInfo(member, a) {
+    var all = App.store.get('checkins') || {};
+    var grp = a && a.groups && a.groups.mental;
+    var c = all[member.id] || (grp && grp.checkin) || null;
+    if (!c) return { checkin: null, level: null, findings: [], text: '', advice: '' };
+    var local = localMental(c);
+    var findings = ((grp && grp.findings) || []).filter(function (f) { return f && isNum(f.level) && f.level >= 1; });
+    var level = grp && isNum(grp.level) ? grp.level : local.level;
+    var text = findings.length ? withPeriod(findings[0].message) : (level === 0 ? MENTAL_OK : local.text);
+    return {
+      checkin: c,
+      level: level,
+      findings: findings,
+      text: text,
+      advice: findings.length && findings[0].advice ? findings[0].advice : '',
+    };
+  }
+
+  function mentalCell(label, icon, value, flagged) {
+    return '<div' + (flagged ? ' data-level="1"' : '') + '><dt>' + esc(label) + '</dt>' +
+      '<dd>' + App.icon(icon) + '<span>' + esc(value) + '</span></dd></div>';
+  }
+
+  function mentalBodyHTML(member, info) {
+    if (!info.checkin) {
+      var btn = '<button type="button" class="btn btn--primary" id="dx-go-log-mental" data-dx-action="log">' +
+        App.icon('clipboard') + 'Add check-in</button>';
+      return App.ui.empty('smile', 'No mental health check-in yet for ' + member.name + '.')
+        .replace(/<\/div>$/, btn + '</div>');
+    }
+    var c = info.checkin;
+    var M = C.mental;
+    var meta = App.levels.meta(info.level);
+    var rec = M.sleep.recommendedMin;
+    var lowSleep = isNum(c.sleepMin) && c.sleepMin < rec;
+    var at = toMs(c.at);
+    return '<div class="dx-result">' +
+      '<div class="dx-result__head" data-level="' + lvlAttr(info.level) + '">' +
+        '<span class="dx-result__icon">' + App.icon(meta.icon) + '</span>' +
+        '<div class="dx-result__copy">' +
+          '<p class="dx-result__label">Result: ' + esc(meta.label) + '</p>' +
+          '<p class="dx-result__text">' + esc(info.text) + '</p>' +
+          (info.advice ? '<p class="dx-result__advice">' + esc(info.advice) + '</p>' : '') +
+        '</div>' +
+      '</div>' +
+      '<dl class="dx-mental-grid">' +
+        mentalCell(M.mood.label, M.mood.icons[c.mood] || 'smile', M.mood.options[c.mood] || '—', c.mood === 0) +
+        mentalCell(M.energy.label, M.energy.icons[c.energy] || 'energyMid', M.energy.options[c.energy] || '—', c.energy === 0) +
+        mentalCell(M.sleep.label, 'bed', isNum(c.sleepMin) ? App.fmt.minutes(c.sleepMin) : '—', lowSleep) +
+      '</dl>' +
+      '<p class="dx-foot">' +
+        (isNum(at)
+          ? 'Logged <span data-dx-ago="' + at + '">' + esc(agoText(at)) + '</span> · ' + esc(App.fmt.time(at))
+          : 'Check-in time unavailable') +
+        (lowSleep ? ' · Recommended: ' + esc(App.fmt.minutes(rec)) : '') +
+      '</p>' +
+      (info.findings.length > 1
+        ? '<div class="dx-findings">' + info.findings.slice(1).map(findingHTML).join('') + '</div>'
+        : '') +
+      '</div>';
+  }
+
+  function mentalSectionHTML(member, a) {
+    var info = mentalInfo(member, a);
+    return '<section class="section" id="dx-mental" aria-label="Mental health">' +
+      App.ui.sectionHead({
+        eyebrow: 'Check-in',
+        title: 'Mental health',
+        action: '<span id="dx-mental-badge">' + (info.checkin ? App.ui.badge(info.level) : '') + '</span>',
+      }) +
+      '<div class="card" id="dx-mental-body">' + mentalBodyHTML(member, info) + '</div>' +
+      '</section>';
+  }
+
+  function mentalSig(member, a) {
+    var info = mentalInfo(member, a);
+    var c = info.checkin;
+    if (!c) return 'none';
+    return [c.at, c.mood, c.energy, c.sleepMin, info.level, info.text, info.advice,
+      info.findings.map(function (f) { return f.key + ':' + f.level; }).join(',')].join('|');
+  }
+
+  function updateMental(member, a) {
+    var sig = mentalSig(member, a);
+    if (sig === st.sig.mental) return;
+    st.sig.mental = sig;
+    var info = mentalInfo(member, a);
+    setHTML(q('#dx-mental-body'), mentalBodyHTML(member, info));
+    setHTML(q('#dx-mental-badge'), info.checkin ? App.ui.badge(info.level) : '');
+  }
+
+  /* 3 and 4 · Physical health, suit, and life support */
+  function rangeText(key) {
+    var m = C.metrics[key];
+    var r = m.nominal || [null, null];
+    var d = m.decimals || 0;
+    if (r[0] !== null && r[1] !== null) return App.fmt.num(r[0], d) + '–' + App.fmt.num(r[1], d);
+    if (r[0] !== null) return '≥ ' + App.fmt.num(r[0], d);
+    if (r[1] !== null) return '≤ ' + App.fmt.num(r[1], d);
+    return '—';
+  }
+
+  /* All data displayed in a table row */
+  function rowModel(key, member, a, data) {
+    var m = C.metrics[key];
+    var value = metricValue(key, data, member.id);
+    var base = member.baseline || {};
+    var r = {
+      key: key, m: m, value: value,
+      level: rowLevel(key, value, a),
+      actual: '', base: '—', diff: '—',
+      missing: m.onDemand ? 'Not measured' : 'No signal',
+    };
+    if (key === 'bp') {
+      if (isNum(base.bpSys)) r.base = Math.round(base.bpSys) + '/' + Math.round(base.bpDia);
+      if (value !== null) {
+        r.actual = App.fmt.metric('bp', data);
+        if (isNum(base.bpSys) && isNum(data.bpDia)) {
+          r.diff = signed(data.bpSys - base.bpSys, 0) + '/' + signed(data.bpDia - base.bpDia, 0);
+        }
+      }
+    } else {
+      if (isNum(base[key])) r.base = App.fmt.num(base[key], m.decimals);
+      if (value !== null) {
+        r.actual = App.fmt.num(value, m.decimals);
+        if (isNum(base[key])) r.diff = signed(value - base[key], m.decimals);
+      }
+    }
+    return r;
+  }
+
+  function valHTML(r) {
+    return r.value === null
+      ? '<span class="dx-missing">' + esc(r.missing) + '</span>'
+      : esc(r.actual) + '<small>' + esc(r.m.unit) + '</small>';
+  }
+
+  function rowHTML(g, r) {
+    var meta = r.value === null ? App.levels.OFFLINE : App.levels.meta(r.level);
+    var html = '<tr id="dx-row-' + r.key + '" data-level="' + lvlAttr(r.value === null ? null : r.level) + '">' +
+      '<th scope="row"><span class="dx-metric">' +
+        '<span class="dx-metric__icon">' + App.icon(meta.icon, null, meta.label) + '</span>' +
+        '<abbr title="' + esc(r.m.label) + '">' + esc(r.m.short) + '</abbr></span></th>' +
+      '<td class="dx-val">' + valHTML(r) + '</td>';
+    if (g === 'bio') html += '<td class="dx-base">' + esc(r.base) + '</td><td class="dx-diff">' + esc(r.diff) + '</td>';
+    else html += '<td class="dx-range">' + esc(rangeText(r.key)) + '</td>';
+    return html + '</tr>';
+  }
+
+  function tableHTML(g, member, a, data) {
+    var bio = g === 'bio';
+    var head = bio ? ['Metric', 'Current', 'Baseline', 'Diff.'] : ['Metric', 'Current', 'Nominal'];
+    return '<table class="dx-table" id="dx-table-' + g + '">' +
+      '<caption class="visually-hidden">' + esc(C.groups[g].label) +
+        (bio ? ': current value, pre-mission baseline, and difference' : ': current value and nominal range') + '</caption>' +
+      '<thead><tr>' + head.map(function (h) { return '<th scope="col">' + h + '</th>'; }).join('') + '</tr></thead>' +
+      '<tbody>' + C.groups[g].metrics.map(function (key) {
+        return rowHTML(g, rowModel(key, member, a, data));
+      }).join('') + '</tbody></table>';
+  }
+
+  /* Group result: level and summary */
+  function groupInfo(g, member, a, data) {
+    var grp = a && a.groups && a.groups[g];
+    var findings = ((grp && grp.findings) || activeFindings(a).filter(function (f) { return f.group === g; }))
+      .filter(function (f) { return f && isNum(f.level) && f.level >= 1; });
+    var levels = C.groups[g].metrics.map(function (k) { return rowLevel(k, metricValue(k, data, member.id), a); });
+    var anyData = levels.some(isNum);
+    var level = !anyData ? null : (grp && isNum(grp.level) ? grp.level : App.levels.max(levels));
+    var text;
+    if (findings.length) {
+      var more = findings.length - 1;
+      text = String(findings[0].message || findings[0].label).replace(/[.!?…]$/, '') +
+        (more ? ' and ' + more + (more === 1 ? ' more finding.' : ' more findings.') : '.');
+    } else if (!anyData) {
+      text = 'No sensor signal.';
+    } else {
+      text = GROUP_OK[g];
+    }
+    return { level: level, text: text };
+  }
+
+  function groupSectionHTML(g, member, a, data) {
+    var info = groupInfo(g, member, a, data);
+    return '<section class="section" id="dx-' + g + '" aria-label="' + esc(C.groups[g].label) + '">' +
+      App.ui.sectionHead({
+        eyebrow: g === 'bio' ? 'Biomedical sensors' : 'Suit telemetry',
+        title: C.groups[g].label,
+        action: '<span id="dx-' + g + '-badge">' + App.ui.badge(info.level) + '</span>',
+      }) +
+      '<div class="card">' +
+        '<div class="dx-group-result" id="dx-' + g + '-result">' + App.ui.statusLine(info.level, info.text) + '</div>' +
+        '<div class="dx-table-wrap">' + tableHTML(g, member, a, data) + '</div>' +
+      '</div></section>';
+  }
+
+  function updateGroups(member, a, data) {
+    ['bio', 'suit'].forEach(function (g) {
+      C.groups[g].metrics.forEach(function (key) {
+        var tr = q('#dx-row-' + key);
+        if (!tr) return;
+        var r = rowModel(key, member, a, data);
+        var lvl = lvlAttr(r.value === null ? null : r.level);
+        if (tr.getAttribute('data-level') !== lvl) {
+          tr.outerHTML = rowHTML(g, r);       // Level changed: redraw the row and icon
+          return;
+        }
+        setHTML(tr.querySelector('.dx-val'), valHTML(r));
+        if (g === 'bio') {
+          setText(tr.querySelector('.dx-base'), r.base);
+          setText(tr.querySelector('.dx-diff'), r.diff);
+        }
+      });
+      var info = groupInfo(g, member, a, data);
+      setHTML(q('#dx-' + g + '-result'), App.ui.statusLine(info.level, info.text));
+      setHTML(q('#dx-' + g + '-badge'), App.ui.badge(info.level));
+    });
+  }
+
+  /* 5 · Blackbox */
+  function blackboxItems(member) {
+    if (!App.blackbox || typeof App.blackbox.list !== 'function') return null;
+    try { return App.blackbox.list({ crewId: member.id, minLevel: 1, limit: 6 }) || []; } catch (e) { return []; }
+  }
+
+  function entryText(e) {
+    var m = e.key && C.metrics[e.key];
+    var txt = e.msg || (m ? m.label : 'Logged event');
+    if (m && isNum(e.value) && !/\d/.test(txt)) txt += ' · ' + App.fmt.num(e.value, m.decimals) + ' ' + m.unit;
+    return txt;
+  }
+
+  function timelineHTML(member) {
+    var items = blackboxItems(member);
+    if (items === null) return App.ui.empty('blackbox', 'Blackbox unavailable.');
+    if (!items.length) return App.ui.empty('blackbox', 'No incidents logged for ' + member.name + '.');
+    return '<div class="timeline">' + items.map(function (e) {
+      var lvl = isNum(e.level) ? e.level : null;
+      var meta = App.levels.meta(lvl);
+      return '<div class="timeline__item" data-level="' + lvlAttr(lvl) + '">' +
+        '<span class="timeline__time">' + esc(timeText(e.t)) + '</span>' +
+        '<span class="timeline__dot" aria-hidden="true"></span>' +
+        '<p class="timeline__text"><span class="dx-tl-level">' + esc(meta.short) + '</span>' + esc(entryText(e)) + '</p>' +
+        '</div>';
+    }).join('') + '</div>';
+  }
+
+  function timelineSig(member) {
+    var items = blackboxItems(member);
+    if (items === null) return 'na';
+    return items.map(function (e) { return [e.t, e.level, e.key, e.msg].join(':'); }).join('|');
+  }
+
+  function logSectionHTML(member) {
+    return '<section class="section" id="dx-log" aria-label="Blackbox">' +
+      App.ui.sectionHead({
+        eyebrow: 'Blackbox',
+        title: 'Recent incidents',
+        action: '<button type="button" class="btn btn--ghost" id="dx-reports" data-dx-action="reports">' +
+          App.icon('fileText') + 'View reports</button>',
+      }) +
+      '<div class="card" id="dx-timeline">' + timelineHTML(member) + '</div>' +
+      '</section>';
+  }
+
+  function updateTimeline() {
+    if (!st) return;
+    st.tlTimer = null;
+    var member = App.crew.byId(st.memberId);
+    if (!member || st.iv) return;
+    var sig = timelineSig(member);
+    if (sig === st.sig.timeline) return;
+    st.sig.timeline = sig;
+    setHTML(q('#dx-timeline'), timelineHTML(member));
+  }
+  function scheduleTimeline() {
+    if (st && !st.tlTimer) st.tlTimer = setTimeout(updateTimeline, 400);
+  }
+
+  /* IV crew inside the spacecraft */
+  function ivHTML(member) {
+    return '<section class="card dx-note" aria-label="No suit telemetry">' + App.icon('info') +
+      '<div class="dx-note__copy">' +
+        '<p class="dx-note__title">' + esc(member.name) + ' is inside the spacecraft</p>' +
+        '<p class="dx-note__text">Assigned role: ' + esc(member.role) + '. No suit is in use, so there is no telemetry to assess. ' +
+          'Only mental health is shown. Select an EV crew member above to view suit telemetry.</p>' +
+      '</div></section>';
+  }
+
+  /* Actions */
+  function speechText(member, a) {
+    var who = member.role + ': ';
+    if (!a || !isNum(a.level)) return who + 'no suit data.';
+    var meta = App.levels.meta(a.level);
+    var f = activeFindings(a)[0];
+    var value = f ? String(f.valueText || '')
+      .replace(/bpm/g, 'beats per minute').replace(/%/g, 'percent')
+      .replace(/°C/g, 'degrees').replace(/mmHg/g, 'millimeters of mercury')
+      .replace(/\bmin\b/g, 'minutes').replace(/\bh\b/g, 'hours').replace(/\//g, ' over ') : '';
+    return capitalize(meta.voice || meta.label) + '. ' + who +
+      (f ? f.message + (value ? ', ' + value : '') : 'all readings in range') + '.';
+  }
+
+  /* Called from a tap because speech requires a user gesture */
+  function listen() {
+    var member = st && App.crew.byId(st.memberId);
+    if (!member) return;
+    if (!App.voice) {
+      App.ui.toast('Voice is unavailable in this browser', { icon: 'info' });
+      return;
+    }
+    if (!App.store.get('voiceOn') && !App.shell.setVoice(true)) return;
+    if (typeof App.voice.speakAssessment === 'function') App.voice.speakAssessment(member.id);
+    else if (typeof App.voice.say === 'function') App.voice.say(speechText(member, getRisk(member.id)), { priority: 'high' });
+  }
+
+  function openReports() {
+    var aj = App.views.settings;
+    if (aj && typeof aj.open === 'function') aj.open('reports');
+    else if (App.shell && App.shell.openDrawer) App.shell.openDrawer();
+  }
+
+  function onClick(e) {
+    if (!st) return;
+    var b = e.target.closest('[data-dx-action]');
+    if (!b || !st.root.contains(b)) return;
+    var act = b.getAttribute('data-dx-action');
+    if (act === 'listen') listen();
+    else if (act === 'log') App.shell.go('log');
+    else if (act === 'reports') openReports();
+  }
+
+  /* Refresh update and check-in timestamps every second */
+  function tick() {
+    if (!st) return;
+    if (!st.iv) setText(q('#dx-updated'), updatedText(getRisk(st.memberId)));
+    Array.prototype.forEach.call(st.root.querySelectorAll('[data-dx-ago]'), function (el) {
+      setText(el, agoText(Number(el.getAttribute('data-dx-ago'))));
+    });
+  }
+
+  /* View interface used by js/app.js */
+  function render(root) {
+    destroy();
+    var member = App.crew.selected();
+    st = { root: root, memberId: member ? member.id : null, iv: false, sig: {}, timer: null, tlTimer: null };
+    root.addEventListener('click', onClick);
+    if (!member) {
+      root.innerHTML = App.ui.empty('users', 'No crew configured.');
+      return;
+    }
+    var a = getRisk(member.id);
+    st.iv = !/^EV/.test(member.role);
+    if (st.iv) {
+      root.innerHTML = ivHTML(member) + mentalSectionHTML(member, a);
+    } else {
+      var data = getData(member.id);
+      root.innerHTML =
+        heroHTML(member, a) +
+        mentalSectionHTML(member, a) +
+        groupSectionHTML('bio', member, a, data) +
+        groupSectionHTML('suit', member, a, data) +
+        logSectionHTML(member);
+      st.sig.findings = findingsSig(a);
+      st.sig.timeline = timelineSig(member);
+    }
+    st.sig.mental = mentalSig(member, a);
+    st.timer = setInterval(tick, 1000);
+  }
+
+  function onEvent(evt, p) {
+    if (!st) return;
+    var member = App.crew.byId(st.memberId);
+    if (!member) return;
+    var mine = !!p && p.crewId === member.id;
+
+    if (evt === 'risk' && mine) {
+      var a = p.assessment || getRisk(member.id);
+      if (!st.iv) {
+        updateHero(a);
+        updateGroups(member, a, getData(member.id));
+      }
+      updateMental(member, a);
+    } else if ((evt === 'telemetry' || evt === 'sensor') && mine && !st.iv) {
+      updateGroups(member, getRisk(member.id), getData(member.id));
+    } else if (evt === 'checkin' && mine) {
+      updateMental(member, getRisk(member.id));
+    } else if (evt === 'blackbox' && !st.iv) {
+      scheduleTimeline();
+    }
+  }
+
+  function destroy() {
+    if (!st) return;
+    st.root.removeEventListener('click', onClick);
+    clearInterval(st.timer);
+    clearTimeout(st.tlTimer);
+    st = null;
+  }
+
+  App.views.diagnosis = { render: render, onEvent: onEvent, destroy: destroy };
+})();

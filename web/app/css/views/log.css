@@ -1,0 +1,112 @@
+/* EVA · Log view (.reg-). Shared cards, sensors, tiles, and buttons use controls.css; colors use tokens.css. */
+
+/* Mental health */
+.reg-card { display: grid; gap: var(--sp-5); }
+.reg-card .group + .group { margin-top: 0; }   /* Spacing comes from gap */
+
+.reg-note {
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--text-2);
+  font-size: var(--fs-sm); line-height: var(--lh-snug);
+}
+.reg-note .icon { width: 18px; height: 18px; margin-top: 1px; color: var(--accent); }
+
+.reg-hint {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-sm); line-height: var(--lh-snug);
+  color: var(--lvl, var(--text-3));
+}
+.reg-hint .icon { width: 16px; height: 16px; margin-top: 1px; }
+
+.reg-actions { display: grid; gap: var(--sp-2); }
+.reg-save-help { text-align: center; font-size: var(--fs-sm); color: var(--text-3); }
+
+/* Physical health: sensor rows */
+.reg-sensor[tabindex] { outline-offset: 4px; }
+
+/* Pulsing live badge */
+.reg-live { flex: none; }
+.reg-live__dot {
+  width: 6px; height: 6px; flex: none;
+  border-radius: 50%;
+  background: currentColor;
+  animation: reg-blink 1.6s ease-in-out infinite;
+}
+@keyframes reg-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+.reg-reading { display: grid; gap: var(--sp-2); min-width: 0; }
+.reg-sensor[data-level="2"] .value,
+.reg-sensor[data-level="3"] .value { color: var(--lvl); }
+.reg-waiting { font-size: var(--fs-sm); color: var(--text-3); }
+
+/* Lost signal above the Connect sensor button */
+.reg-lost {
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--fs-sm); font-weight: 600;
+  color: var(--lvl);
+}
+.reg-lost .icon { width: 16px; height: 16px; }
+
+/* Blood pressure result box */
+.reg-result {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-3);
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: var(--stroke) solid var(--line);
+}
+.reg-result[data-level="1"],
+.reg-result[data-level="2"],
+.reg-result[data-level="3"] { background: var(--lvl-soft); border-color: var(--lvl); }
+.reg-result__main { display: grid; gap: 6px; min-width: 0; }
+.reg-result__time {
+  flex: none;
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+/* Measurement progress bar */
+.reg-progress {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.reg-progress::after {
+  content: "";
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--accent);
+  animation: reg-indeterminate 1.2s var(--ease) infinite;
+}
+@keyframes reg-indeterminate {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(260%); }
+}
+
+/* Suit and life support */
+.reg-tile .tile__foot {
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--fs-sm); line-height: var(--lh-snug);
+}
+.reg-tile[data-level="2"] .value,
+.reg-tile[data-level="3"] .value { color: var(--lvl); }
+.reg-tile[data-level="off"] .value { color: var(--text-3); }
+
+/* Narrow screens: chart below value */
+@media (max-width: 359px) {
+  .reg-sensor .sensor__readout { flex-wrap: wrap; }
+  .reg-sensor .spark { width: 100%; }
+  .reg-tile .value--md { font-size: var(--fs-xl); }
+}

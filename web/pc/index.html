@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<title>EVA Station</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="EVA Station: cabin program for biomedical EVA monitoring — live triage, go/no-go, protocols, black box and reports.">
+<link rel="icon" href="/shared/logo.png" type="image/png">
+
+<!-- Same design system as the EVA phone app (web/shared). Fonts load when
+     there is internet; offline, the token stacks fall back to system fonts. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/shared/css/tokens.css">
+<link rel="stylesheet" href="/shared/css/base.css">
+<link rel="stylesheet" href="/shared/css/controls.css">
+<link rel="stylesheet" href="css/station.css">
+</head>
+<body class="station">
+
+<header class="st-top">
+  <a class="st-brand" href="#triage" aria-label="EVA Station home">
+    <img src="/shared/logo.png" alt="" width="36" height="36">
+    <span class="st-brand__name">EVA</span><span class="st-brand__sub">Station</span>
+  </a>
+  <div class="st-mission" id="top-mission" aria-live="polite"></div>
+  <div class="st-top__right">
+    <span class="st-link" id="top-link" data-state="off"><span class="st-link__dot" aria-hidden="true"></span><span id="top-link-text">Connecting…</span></span>
+    <button type="button" class="icon-btn" id="btn-connect" aria-label="Connect a phone" title="Connect a phone"><span data-icon="signal"></span></button>
+    <button type="button" class="icon-btn" id="btn-sound" aria-pressed="true" aria-label="Mute the cabin alarm" title="Cabin alarm sound"><span data-icon="bell"></span></button>
+    <button type="button" class="icon-btn" id="btn-theme" aria-label="Switch to dark cabin mode" title="Light / dark"><span data-icon="moon"></span></button>
+  </div>
+</header>
+
+<nav class="st-side" aria-label="Station modules">
+  <p class="eyebrow st-side__label">Operations</p>
+  <a class="st-nav" href="#triage" data-view="triage"><span data-icon="activity"></span><span>Live triage</span><span class="st-nav__badge" id="badge-triage" hidden></span></a>
+  <a class="st-nav" href="#premission" data-view="premission"><span data-icon="clipboard"></span><span>Pre-mission · Go/No-Go</span></a>
+  <a class="st-nav" href="#console" data-view="console"><span data-icon="shield"></span><span>Protocols &amp; control</span><span class="st-nav__badge" id="badge-console" hidden></span></a>
+  <p class="eyebrow st-side__label">Records</p>
+  <a class="st-nav" href="#crew" data-view="crew"><span data-icon="users"></span><span>Crew</span></a>
+  <a class="st-nav" href="#reports" data-view="reports"><span data-icon="fileText"></span><span>Reports</span></a>
+  <a class="st-nav" href="#blackbox" data-view="blackbox"><span data-icon="blackbox"></span><span>Black box</span></a>
+  <p class="eyebrow st-side__label">Demonstration</p>
+  <a class="st-nav" href="#simulator" data-view="simulator"><span data-icon="play"></span><span>Simulator</span></a>
+  <div class="st-side__foot" id="side-foot"></div>
+</nav>
+
+<main class="st-main" id="main" tabindex="-1">
+  <div id="alarm-slot" aria-live="assertive"></div>
+  <div id="view"></div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="st-modal" id="modal" hidden>
+  <div class="st-modal__scrim" data-close-modal></div>
+  <section class="st-modal__box card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="row-between"><h2 id="modal-title"></h2><button type="button" class="icon-btn" data-close-modal aria-label="Close"><span data-icon="close"></span></button></div>
+    <div id="modal-body" class="stack"></div>
+  </section>
+</div>
+
+<script src="/shared/js/icons.js"></script>
+<script src="js/station.js"></script>
+<script src="js/views.js"></script>
+</body>
+</html>

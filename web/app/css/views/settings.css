@@ -1,0 +1,218 @@
+/* EVA · Settings drawer and sheets. Uses theme tokens and the .cfg- prefix. */
+
+/* Drawer */
+.cfg {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  min-width: 0;
+}
+.cfg-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.cfg-head__title { font-size: var(--fs-xl); }
+
+/* IV operator inside the spacecraft */
+.cfg-operator {
+  display: flex; align-items: center; gap: var(--sp-3);
+  width: 100%; min-height: 64px;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  border: var(--stroke) solid var(--line);
+  background: var(--surface-2);
+  text-align: left;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.cfg-operator:hover { border-color: var(--line-strong); }
+.cfg-operator .avatar { margin: 2px; box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--accent); }
+.cfg-operator__text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.cfg-operator__name { font-family: var(--font-display); font-weight: 600; }
+.cfg-operator__sub { color: var(--text-3); font-size: var(--fs-sm); }
+.cfg-operator > .icon { color: var(--text-3); }
+
+/* Mission */
+.cfg-mission { display: grid; gap: 4px; }
+.cfg-mission__name { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-lg); }
+.cfg-mission__site { color: var(--text-2); font-size: var(--fs-sm); }
+.cfg-mission__delay {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin-top: 4px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.cfg-mission__delay .icon { width: 16px; height: 16px; margin-top: 2px; color: var(--accent); }
+.cfg-mission__delay strong { color: var(--text); font-weight: 500; }
+
+/* Menu: Export data, Reports, Assign roles */
+.cfg-list { border-top: var(--stroke) solid var(--line); }
+
+/* Voice and demo sections */
+.cfg-section {
+  display: grid; gap: var(--sp-3);
+  padding-top: var(--sp-4);
+  border-top: var(--stroke) solid var(--line);
+}
+.cfg-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  min-height: var(--tap);
+}
+.cfg-row__text { display: grid; min-width: 0; }
+.cfg-row__title { font-weight: 600; }
+.cfg-row__sub { color: var(--text-3); font-size: var(--fs-sm); }
+.cfg-row .switch::before {            /* 44 px touch target around the switch */
+  content: "";
+  position: absolute;
+  inset: -8px -6px;
+}
+.cfg-row .switch[disabled] { opacity: 0.45; cursor: not-allowed; }
+.cfg-actions { display: grid; gap: var(--sp-2); }
+.cfg-actions--split { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+
+/* Footer: theme and version */
+.cfg-foot {
+  margin-top: auto;
+  display: grid; gap: 4px;
+  padding-top: var(--sp-4);
+  border-top: var(--stroke) solid var(--line);
+}
+.cfg-foot__meta {
+  color: var(--text-3);
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+}
+.cfg-theme {
+  display: flex; align-items: center; gap: var(--sp-3);
+  width: 100%; min-height: 56px;
+  margin-bottom: var(--sp-2);
+  padding: 6px;
+  border-radius: var(--r-md);
+  text-align: left;
+}
+.cfg-theme:hover { background: var(--surface-2); }
+.cfg-theme__icon {
+  width: var(--tap); height: var(--tap); flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: var(--stroke) solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+.cfg-theme__text { display: grid; }
+.cfg-theme__title { font-weight: 600; }
+.cfg-theme__sub { color: var(--text-3); font-size: var(--fs-xs); }
+
+/* Information note */
+.cfg-note {
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.cfg-note .icon { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--accent); }
+.cfg-error { color: var(--critical); font-size: var(--fs-sm); font-weight: 600; }
+
+/* Bottom sheets */
+.cfg-sheet { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.cfg-sheet__block { display: grid; gap: var(--sp-2); }
+.cfg-preview { min-height: 200px; max-height: 42vh; }
+.cfg-details summary {
+  display: flex; align-items: center;
+  min-height: var(--tap);
+  color: var(--accent);
+  font-size: var(--fs-sm); font-weight: 600;
+  cursor: pointer;
+}
+.cfg-details[open] summary { margin-bottom: var(--sp-2); }
+
+/* Reports: summary by level */
+.cfg-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.cfg-stat {
+  display: grid; gap: 4px;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--lvl-soft);
+}
+.cfg-stat__num {
+  font-family: var(--font-mono); font-size: var(--fs-2xl);
+  line-height: 1; color: var(--lvl);
+  font-variant-numeric: tabular-nums;
+}
+.cfg-stat__label { color: var(--text-2); font-size: var(--fs-xs); font-weight: 600; }
+
+/* Reports: by crew member */
+.cfg-crewsums { display: grid; }
+.cfg-crewsum {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding-block: var(--sp-2);
+  border-top: var(--stroke) solid var(--line);
+}
+.cfg-crewsum:first-child { border-top: 0; }
+.cfg-crewsum .avatar { --size: 32px; margin: 2px; }
+.cfg-crewsum__text { flex: 1; min-width: 0; display: grid; }
+.cfg-crewsum__name { font-weight: 600; font-size: var(--fs-sm); }
+.cfg-crewsum__sub { color: var(--text-3); font-size: var(--fs-xs); }
+
+/* Reports: incident list */
+.cfg-incidents { display: grid; }
+.cfg-incident {
+  display: grid; gap: 4px;
+  padding-block: var(--sp-3);
+  border-top: var(--stroke) solid var(--line);
+}
+.cfg-incident:first-child { border-top: 0; padding-top: 0; }
+.cfg-incident__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--sp-2); }
+.cfg-incident__time {
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.cfg-incident__what { font-weight: 600; }
+.cfg-incident__meta { color: var(--text-2); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.cfg-live {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--lvl);
+}
+
+/* Assign roles */
+.cfg-role {
+  display: grid; gap: var(--sp-2);
+  padding-block: var(--sp-3);
+  border-top: var(--stroke) solid var(--line);
+}
+.cfg-role:first-of-type { border-top: 0; padding-top: 0; }
+.cfg-role__who { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.cfg-role__who .avatar { --size: 32px; margin: 2px; }
+.cfg-role__text { display: grid; min-width: 0; }
+.cfg-role__name { font-weight: 600; }
+.cfg-role__spec { color: var(--text-3); font-size: var(--fs-sm); }
+
+/* Fault simulation scenarios */
+.cfg-scenarios { display: grid; gap: var(--sp-2); }
+.cfg-scenario {
+  display: flex; align-items: center; gap: var(--sp-3);
+  width: 100%; min-height: 60px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: var(--stroke) solid var(--line-strong);
+  background: var(--surface-2);
+  text-align: left;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.cfg-scenario[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.cfg-scenario__icon {
+  width: 36px; height: 36px; flex: none;
+  display: grid; place-items: center;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text-2);
+}
+.cfg-scenario[aria-checked="true"] .cfg-scenario__icon { color: var(--accent); }
+.cfg-scenario__text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.cfg-scenario__label { font-weight: 600; }
+.cfg-scenario__desc { color: var(--text-3); font-size: var(--fs-sm); }

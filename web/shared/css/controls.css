@@ -1,0 +1,261 @@
+/* =====================================================================
+   EVA · CONTROLS (shared by the phone app and EVA Station)
+   Piezas reutilizables dentro de las pantallas. Para usar un color de
+   riesgo, pon data-level="0|1|2|3|off" en el elemento y pinta con
+   var(--lvl) / var(--lvl-soft).
+   ===================================================================== */
+
+/* ---------- Secciones y tarjetas ---------- */
+.section { display: grid; gap: var(--sp-3); }
+.section__head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-3); min-width: 0; }
+.section__titles { display: grid; gap: 4px; min-width: 0; }
+.section__title { font-size: var(--fs-xl); }
+.section__hint { color: var(--text-3); font-size: var(--fs-sm); }
+
+.card {
+  background: var(--surface);
+  border: var(--stroke) solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+}
+.card--tight { padding: var(--sp-3); }
+.card[data-level="2"], .card[data-level="3"] { border-color: var(--lvl); }
+
+.group { display: grid; gap: var(--sp-2); }
+.group + .group { margin-top: var(--sp-5); }
+.group__label { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); font-weight: 600; font-size: var(--fs-sm); color: var(--text-2); }
+.divider { height: 1px; background: var(--line); border: 0; margin: 0; }
+
+/* ---------- Botones ---------- */
+.btn {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--tap);
+  padding: 0 18px;
+  border-radius: var(--r-pill);
+  border: var(--stroke) solid transparent;
+  font-family: var(--font-display); font-weight: 600; font-size: var(--fs-sm);
+  line-height: 1; white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.btn:active { transform: scale(0.98); }
+.btn .icon { width: 18px; height: 18px; }
+.btn--primary { background: var(--accent-strong); color: var(--on-accent); }
+.btn--primary:hover { filter: brightness(1.08); }
+.btn--secondary { border-color: var(--line-strong); color: var(--text); }
+.btn--secondary:hover { background: var(--surface-2); }
+.btn--ghost { color: var(--accent); padding-inline: 10px; }
+.btn--ghost:hover { background: var(--accent-soft); }
+.btn--danger { background: var(--critical-soft); color: var(--critical); }
+.btn--sm { min-height: 40px; padding: 0 14px; font-size: 13px; }
+.btn--sm::before { content: ""; position: absolute; inset: -2px 0; }   /* zona táctil de 44 px */
+.btn--block { width: 100%; }
+.btn[disabled], .btn[aria-busy="true"] { opacity: 0.6; cursor: default; }
+.spinner {
+  width: 14px; height: 14px; flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Selector de 3 opciones (Ánimo, Energía) ---------- */
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr));
+  gap: 4px; padding: 4px;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+}
+.segmented__opt {
+  min-height: 56px;
+  display: grid; justify-items: center; align-content: center; gap: 4px;
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-size: var(--fs-sm); font-weight: 600;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.segmented__opt .icon { width: 20px; height: 20px; }
+.segmented__opt:hover { color: var(--text); }
+.segmented__opt[aria-checked="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-1), inset 0 0 0 1px var(--line-strong);
+}
+.segmented__opt[aria-checked="true"] .icon { color: var(--accent); }
+
+/* ---------- Contador (Sueño) ---------- */
+.stepper {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  padding: 4px;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+}
+.stepper__btn {
+  width: var(--tap); height: var(--tap);
+  display: grid; place-items: center;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+.stepper__value { font-family: var(--font-mono); font-size: var(--fs-xl); font-variant-numeric: tabular-nums; }
+.stepper__value small { font-size: var(--fs-sm); color: var(--text-3); }
+
+/* ---------- Sensor (fila con conexión y lectura en vivo) ---------- */
+.sensor { display: grid; gap: var(--sp-3); padding-block: var(--sp-4); border-top: var(--stroke) solid var(--line); }
+.sensor:first-child { border-top: 0; padding-top: 0; }
+.sensor:last-child { padding-bottom: 0; }
+.sensor__head { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.sensor__icon {
+  width: 38px; height: 38px; flex: none;
+  display: grid; place-items: center;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.sensor[data-level] .sensor__icon { background: var(--lvl-soft); color: var(--lvl); }
+.sensor__label { flex: 1; min-width: 0; display: grid; }
+.sensor__name { font-weight: 600; line-height: 1.3; }
+.sensor__sub { color: var(--text-3); font-size: var(--fs-sm); }
+.sensor__readout { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-4); min-width: 0; }
+
+/* Valores numéricos de telemetría */
+.value {
+  font-family: var(--font-mono); font-weight: 400;
+  font-size: var(--fs-3xl); line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.value--md { font-size: var(--fs-2xl); }
+.value__unit { margin-left: 4px; font-size: var(--fs-sm); letter-spacing: 0; color: var(--text-3); }
+
+.status-line { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: 600; color: var(--lvl, var(--text-2)); }
+.status-line .icon { width: 16px; height: 16px; }
+
+/* Mini gráfica de tendencia */
+.spark { width: 128px; height: 44px; flex: none; color: var(--lvl, var(--accent)); overflow: visible; }
+.spark__area { fill: currentColor; opacity: 0.14; stroke: none; }
+.spark__line { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; }
+.spark__end { fill: currentColor; stroke: var(--surface); stroke-width: 2; }
+.spark__grid { stroke: var(--line); stroke-width: 1; }
+
+/* ---------- Mosaico de métricas (traje) ---------- */
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.tile {
+  display: grid; gap: 6px; min-width: 0;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: var(--stroke) solid transparent;
+}
+.tile[data-level="1"], .tile[data-level="2"], .tile[data-level="3"] { background: var(--lvl-soft); border-color: var(--lvl); }
+.tile__head { display: flex; align-items: center; gap: 6px; color: var(--text-3); }
+.tile__head .icon { width: 16px; height: 16px; }
+.tile__foot { font-size: var(--fs-xs); font-weight: 600; color: var(--lvl, var(--text-3)); }
+
+/* ---------- Insignia de riesgo ---------- */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--lvl-soft, var(--surface-2));
+  color: var(--lvl, var(--text-2));
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.badge .icon { width: 14px; height: 14px; }
+.badge--live { background: var(--accent-soft); color: var(--accent); }
+
+/* ---------- Medidor circular de riesgo ---------- */
+.ring { position: relative; width: 132px; height: 132px; flex: none; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring__track { fill: none; stroke: var(--surface-3); }
+.ring__value { fill: none; stroke: var(--lvl); stroke-linecap: round; transition: stroke-dashoffset var(--dur-slow) var(--ease-out), stroke var(--dur) var(--ease); }
+.ring__label { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 2px; }
+.ring__num { font-family: var(--font-mono); font-size: var(--fs-4xl); line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+
+/* ---------- Hallazgo (Diagnóstico) ---------- */
+.finding { display: flex; align-items: flex-start; gap: var(--sp-3); padding-block: var(--sp-3); border-top: var(--stroke) solid var(--line); }
+.finding:first-child { border-top: 0; padding-top: 0; }
+.finding:last-child { padding-bottom: 0; }
+.finding__icon { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--lvl-soft); color: var(--lvl); }
+.finding__icon .icon { width: 16px; height: 16px; }
+.finding__text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.finding__title { font-weight: 600; font-size: var(--fs-sm); }
+.finding__detail { color: var(--text-2); font-size: var(--fs-sm); }
+.finding__value { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--lvl); white-space: nowrap; }
+
+/* ---------- Línea de tiempo (caja negra) ---------- */
+.timeline { display: grid; }
+.timeline__item { display: grid; grid-template-columns: 64px 10px minmax(0, 1fr); gap: var(--sp-2); padding-block: 8px; align-items: start; }
+.timeline__time { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-3); padding-top: 2px; }
+.timeline__dot { width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--lvl, var(--text-3)); }
+.timeline__text { font-size: var(--fs-sm); overflow-wrap: anywhere; }
+
+/* ---------- Listas (menú y hojas) ---------- */
+.list { display: grid; }
+.list-item {
+  display: flex; align-items: center; gap: var(--sp-3);
+  width: 100%; min-height: 60px;
+  padding: 8px 4px;
+  border-bottom: var(--stroke) solid var(--line);
+  text-align: left;
+}
+.list-item:hover { background: var(--surface-2); }
+.list-item__icon { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--surface-2); color: var(--accent); }
+.list-item__text { flex: 1; min-width: 0; display: grid; }
+.list-item__title { font-weight: 600; }
+.list-item__sub { color: var(--text-3); font-size: var(--fs-sm); }
+.list-item > .icon:last-child { color: var(--text-3); }
+
+/* ---------- Interruptor ---------- */
+.switch {
+  position: relative; flex: none;
+  width: 50px; height: 30px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  border: var(--stroke) solid var(--line-strong);
+  transition: background var(--dur) var(--ease);
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--text-2);
+  transition: transform var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.switch[aria-checked="true"] { background: var(--accent-strong); border-color: transparent; }
+.switch[aria-checked="true"]::after { transform: translateX(20px); background: var(--on-accent); }
+
+/* ---------- Datos clave / valor (Perfil) ---------- */
+.kv { display: grid; }
+.kv__row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--sp-3); padding-block: 12px; border-bottom: var(--stroke) solid var(--line); }
+.kv__row:first-child { padding-top: 0; }
+.kv__row:last-child { border-bottom: 0; padding-bottom: 0; }
+.kv__key { color: var(--text-3); font-size: var(--fs-sm); }
+.kv__val { font-weight: 500; text-align: right; overflow-wrap: anywhere; }
+
+/* ---------- Campos de formulario ---------- */
+.field { display: grid; gap: 6px; }
+.field__label { font-size: var(--fs-sm); font-weight: 600; color: var(--text-2); }
+.input {
+  width: 100%; min-height: var(--tap);
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: var(--stroke) solid var(--line-strong);
+  color: var(--text);
+}
+.input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+textarea.input { min-height: 180px; padding: 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; resize: vertical; }
+
+/* ---------- Estado vacío ---------- */
+.empty {
+  display: grid; justify-items: center; gap: var(--sp-2);
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center; color: var(--text-3); font-size: var(--fs-sm);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+}
+.empty .icon { width: 28px; height: 28px; }

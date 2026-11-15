@@ -216,7 +216,8 @@
     var data = latest();
     var v = rawValue(key, data);
     var level = connected && v !== null ? App.levels.classify(key, v) : null;
-    var live = '<span class="badge badge--live reg-live"><span class="reg-live__dot" aria-hidden="true"></span>Live</span>';
+    var realHardware = !!(App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId,key));
+    var live = '<span class="badge badge--live reg-live"><span class="reg-live__dot" aria-hidden="true"></span>' + (realHardware ? 'Hardware live' : 'Demo · not paired') + '</span>';
     var body;
 
     if (connected) {
@@ -232,7 +233,7 @@
           : '') +
         '<button type="button" class="btn btn--secondary btn--block" id="reg-connect-' + key + '" data-action="connect" data-key="' + key + '"' +
         (busy ? ' disabled aria-busy="true"' : '') + '>' +
-        (busy ? '<span class="spinner" aria-hidden="true"></span>Connecting…' : App.icon('signal') + 'Connect sensor') +
+        (busy ? '<span class="spinner" aria-hidden="true"></span>Connecting…' : App.icon('signal') + 'Start demo feed') +
         '</button>';
     }
     return '<div class="sensor reg-sensor" id="reg-row-' + key + '" data-key="' + key + '"' +
@@ -242,33 +243,19 @@
 
   /* Blood pressure row measured by tapping the button */
   function bpRow() {
-    var measuring = statusOf('bp') === 'measuring';
-    var data = latest();
-    var v = rawValue('bp', data);
-    var has = v !== null;
-    var level = has ? App.levels.classify('bp', v) : null;
-    lastBpAt = has ? (data.bpAt || null) : null;
-
-    var result = '';
-    if (measuring) {
-      result = '<div class="reg-progress" role="progressbar" aria-label="Measuring blood pressure"></div>';
-    } else if (has) {
-      result = '<div class="reg-result" data-level="' + App.ui.lvlAttr(level) + '">' +
-        '<div class="reg-result__main"><p class="eyebrow">Result</p>' +
-          valueHTML('bp', data, true) + App.ui.statusLine(level, stateText('bp', level, v)) + '</div>' +
-        (data.bpAt ? '<p class="reg-result__time">' + esc(hhmm(data.bpAt)) + '</p>' : '') +
-      '</div>';
-    }
-    var label = measuring
-      ? '<span class="spinner" aria-hidden="true"></span>Measuring…'
-      : App.icon('gauge') + (has ? 'Measure again' : 'Measure pressure');
-
-    return '<div class="sensor reg-sensor" id="reg-row-bp" data-key="bp"' +
-      (has && !measuring ? ' data-level="' + App.ui.lvlAttr(level) + '"' : '') + '>' +
+    var saved = ((App.store.get('physicalManual') || {})[crewId]) || {};
+    var has = Number.isFinite(saved.bpSys) && Number.isFinite(saved.bpDia);
+    var data = has ? { bpSys: saved.bpSys, bpDia: saved.bpDia, bpAt: saved.bpAt || null } : null;
+    var result = has
+      ? '<div class="reg-result"><div class="reg-result__main"><p class="eyebrow">Last manual / cuff reading</p>' +
+          valueHTML('bp', data, true) + '<p class="reg-waiting">Not assessed as live suit telemetry.</p></div>' +
+          (data.bpAt ? '<p class="reg-result__time">' + esc(hhmm(data.bpAt)) + '</p>' : '') + '</div>'
+      : '<p class="reg-waiting">No blood-pressure measurement recorded.</p>';
+    return '<div class="sensor reg-sensor" id="reg-row-bp" data-key="bp">' +
       sensorHead('bp') + result +
-      '<button type="button" class="btn btn--secondary btn--block" id="reg-bp-measure" data-action="measure-bp"' +
-        (measuring ? ' disabled aria-busy="true"' : '') + '>' + label + '</button>' +
-    '</div>';
+      '<button type="button" class="btn btn--secondary btn--block" data-action="go-diagnosis">' +
+        App.icon('clipboard') + 'Enter blood pressure' +
+      '</button></div>';
   }
 
   function bioHead() {
@@ -278,7 +265,7 @@
       title: 'Physical health',
       hint: 'Live from the suit',
       action: anyOff
-        ? '<button type="button" class="btn btn--ghost btn--sm" id="reg-connect-all" data-action="connect-all">' + App.icon('link') + 'Connect all</button>'
+        ? '<button type="button" class="btn btn--ghost btn--sm" id="reg-connect-all" data-action="connect-all">' + App.icon('link') + 'Start demo feed</button>'
         : '',
     }) + '</div>';
   }
@@ -300,7 +287,7 @@
     if (st === 'connecting') foot = '<span class="spinner" aria-hidden="true"></span>Connecting…';
     else if (!connected) foot = wasLost(key) ? 'Signal lost' : 'No signal';
     else if (v === null) foot = 'Waiting for data…';
-    else foot = esc(stateText(key, level, v, true));
+    else foot = App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId,key) ? esc(stateText(key, level, v, true)) : 'Demo data · hardware not paired';
 
     return '<div class="tile reg-tile" id="reg-tile-' + key + '" data-key="' + key + '"' +
       ' data-conn="' + (connected ? '1' : '0') + '" data-level="' + (v !== null ? App.ui.lvlAttr(level) : 'off') + '"' +
@@ -462,6 +449,7 @@
     else if (action === 'connect-all') connectAll();
     else if (action === 'connect-suit') connect(SUIT.filter(isOff));
     else if (action === 'measure-bp') measureBP();
+    else if (action === 'go-diagnosis') App.shell.go('diagnosis');
   }
 
   /* Arrow-key navigation for mood and energy options */

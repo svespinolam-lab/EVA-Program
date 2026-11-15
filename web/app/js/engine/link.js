@@ -8,6 +8,9 @@
   var served = /^https?:$/.test(location.protocol) && location.pathname.indexOf('/app') === 0;
   var socket = null, retry = null, batchTimer = null, delay = 1000, initialized = false;
   var state = 'off', lastAck = 0, replay = [], inFlight = null, sent = new Set();
+  var monthlyOutbox = App.storage.get('monthlyOutbox', []);
+  if (!Array.isArray(monthlyOutbox)) monthlyOutbox = [];
+  var monthlyInFlight = null, monthlySent = null;
   var alerts = {}, seen = {}, abortTimer = null, abortKey = null;
   var esc = App.dom.esc;
   var saved = App.storage.get('outbox', []);
@@ -15,6 +18,7 @@
     if (!Array.isArray(row)) return row;
     var item = { type: 'telemetry', crewId: row[0], seq: row[1], t: row[2] };
     FIELDS.forEach(function (k, i) { if (Number.isFinite(row[i + 3])) item[k] = row[i + 3]; });
+    item.source = row[16] || 'virtual';
     return item;
   }).filter(function (item) { return item && Number.isSafeInteger(item.seq) && item.seq > 0 && Number.isFinite(item.t) && typeof item.crewId === 'string'; }).slice(-20000);
   var seq = Math.max(Number(App.storage.get('linkSeq', 0)) || 0, outbox.reduce(function (n, item) { return Math.max(n, item.seq); }, 0));
@@ -29,8 +33,25 @@
   }
   function persist() {
     App.storage.set('outbox', outbox.map(function (item) {
-      return [item.crewId, item.seq, item.t].concat(FIELDS.map(function (k) { return item[k] == null ? null : item[k]; }));
+      return [item.crewId, item.seq, item.t].concat(FIELDS.map(function (k) { return item[k] == null ? null : item[k]; }), item.source || 'virtual');
     }));
+  }
+  function persistMonthly() { App.storage.set('monthlyOutbox', monthlyOutbox); }
+  function flushMonthly() {
+    if (state !== 'online' || monthlyInFlight || !monthlyOutbox.length) return;
+    var item = monthlyOutbox[0];
+    if (send(Object.assign({ type: 'monthly-health' }, item))) { monthlyInFlight = item.month; monthlySent = JSON.stringify(item); }
+  }
+  function queueMonthlyHealth(record) {
+    if (!record || !/^\\d{4}-\\d{2}$/.test(record.month)) throw new Error('Monthly panel requires YYYY-MM');
+    var clean = { month: record.month };
+    ['hemoglobin','wbc','platelets','glucose','orthostaticDrop','weightKg','radiationMonth'].forEach(function(k) {
+      if (Number.isFinite(record[k])) clean[k] = record[k];
+    });
+    if (Object.keys(clean).length === 1) throw new Error('Enter at least one monthly clinical value first');
+    var i = monthlyOutbox.findIndex(function(x){return x.month===clean.month;});
+    if (i >= 0) monthlyOutbox[i] = Object.assign({}, monthlyOutbox[i], clean); else monthlyOutbox.push(clean);
+    persistMonthly(); flushMonthly(); changed(); return true;
   }
   function status() { return { state: state, host: host(), crewId: crewId(), queued: outbox.length, lastAck: lastAck }; }
   function changed() {
@@ -69,7 +90,7 @@
     clearTimeout(retry); clearTimeout(batchTimer); retry = batchTimer = null;
     var old = socket; socket = null;
     if (old) { old.onopen = old.onmessage = old.onclose = old.onerror = null; old.close(); }
-    replay = []; inFlight = null; sent.clear();
+    replay = []; inFlight = null; sent.clear(); monthlyInFlight = null; monthlySent = null;
   }
   function schedule() {
     if (!enabled()) return;
@@ -198,12 +219,14 @@
         alerts = {};
         (message.alerts || []).forEach(alert); renderAlerts();
         replay = outbox.filter(function (item) { return item.crewId === crewId(); });
-        changed(); api.sendReadiness(); queueCount(); nextBatch(); break;
+        changed(); api.sendReadiness(); queueCount(); nextBatch(); flushMonthly(); break;
       case 'ack-seq':
         if (Number.isSafeInteger(message.seq) && message.seq >= 0) {
           lastAck = Math.max(lastAck, message.seq); prune(message.seq);
         }
         break;
+      case 'monthly-health-ok':
+        if (monthlyOutbox.length && monthlyOutbox[0].month === message.month && JSON.stringify(monthlyOutbox[0]) === monthlySent) monthlyOutbox.shift(); persistMonthly(); monthlyInFlight = null; monthlySent = null; flushMonthly(); toast('Monthly clinical panel synced'); break;
       case 'batch-ok':
         if (!inFlight) break;
         clearTimeout(batchTimer);
@@ -221,7 +244,7 @@
       case 'inject': App.telemetry.inject(crewId(), message.scenario); break;
       case 'clear': App.telemetry.clearScenarios(crewId()); break;
       case 'replaced': toast(message.reason || 'This phone was replaced'); api.setEnabled(false); break;
-      case 'error': toast(message.error || 'Station error'); break;
+      case 'error': monthlyInFlight = null; monthlySent = null; toast(message.error || 'Station error'); break;
       // pong and readiness-ok need no state change.
     }
   }
@@ -272,7 +295,7 @@
   }
   function telemetry(event) {
     if (!enabled() || !event || event.remote || event.crewId !== crewId() || !App.crew.isEva(crewId()) || !event.data) return;
-    var item = { type: 'telemetry', crewId: crewId(), seq: ++seq, t: Date.now() };
+    var item = { type: 'telemetry', crewId: crewId(), seq: ++seq, t: Date.now(), source: event.data.source || 'virtual' };
     App.storage.set('linkSeq', seq);
     FIELDS.forEach(function (k) { if (Number.isFinite(event.data[k])) item[k] = event.data[k]; });
     outbox.push(item);
@@ -359,6 +382,7 @@
       log('system', 'Incident reported to EVA Station', 1); toast('Incident reported'); return true;
     },
     sendReadiness: function () { var message = readiness(); return !!(enabled() && state === 'online' && message && send(message)); },
+    sendMonthlyHealth: queueMonthlyHealth,
     openSheet: openSheet,
   };
 })();

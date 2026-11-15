@@ -176,3 +176,20 @@
 .dx-note__copy { flex: 1; min-width: 0; display: grid; gap: 4px; }
 .dx-note__title { font-family: var(--font-display); font-weight: 600; }
 .dx-note__text { font-size: var(--fs-sm); color: var(--text-2); }
+
+
+/* Complete daily physical-health panel */
+.dx-physical-notice { margin-bottom: var(--sp-3); background: var(--surface-2); }
+.dx-physical-notice p { margin: 6px 0 0; color: var(--text-2); font-size: var(--fs-sm); line-height: 1.5; }
+.dx-physical-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: var(--sp-3); }
+.dx-physical-grid > .card { min-width: 0; padding: var(--sp-3); }
+.dx-physical-value { margin: 10px 0 4px; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.dx-physical-grid details { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 9px; color: var(--text-2); font-size: var(--fs-sm); }
+.dx-physical-grid details summary { cursor: pointer; color: var(--text); font-weight: 600; }
+.dx-physical-grid details p { line-height: 1.5; }
+.dx-physical-grid .field { display: block; margin-top: 10px; }
+.dx-physical-grid .input { width: 100%; }
+@media (min-width: 700px) { .dx-physical-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+
+.dx-bp-inputs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-2); }
+.dx-physical-notice .btn { margin-top:10px; }

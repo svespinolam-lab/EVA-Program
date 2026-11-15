@@ -260,7 +260,7 @@ func (e *Engine) Ingest(s model.Sample, source string) {
 		e.backfill(cs, s, source) // old reading from the offline queue
 		return
 	}
-	e.ingestLive(cs, s, sourceForSample, now)
+	e.ingestLive(cs, s, source, now)
 }
 
 // IngestBatch processes a store-and-forward batch (oldest first).
@@ -282,7 +282,7 @@ func (e *Engine) IngestBatch(crewID string, items []model.Sample, source string)
 			continue
 		}
 		if now-s.T <= 15000 && (cs.latest == nil || s.T > cs.latest.T) {
-			e.ingestLive(cs, s, source, now)
+			e.ingestLive(cs, s, sourceForSample, now)
 		} else {
 			lvl := e.backfill(cs, s, sourceForSample)
 			if lvl > worst {

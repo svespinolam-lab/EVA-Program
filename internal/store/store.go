@@ -743,6 +743,39 @@ func (s *Store) Summaries(crewID string, since int64) ([]model.EVASummary, error
 	return out, rows.Err()
 }
 
+// SaveMonthly upserts only the non-psychological monthly clinical panel.
+func (s *Store) SaveMonthly(m model.Monthly) error {
+	if m.CrewID == "" {
+		return errors.New("crew ID is required")
+	}
+	if _, err := time.Parse("2006-01", m.Month); err != nil {
+		return errors.New("month must use YYYY-MM")
+	}
+	s.Flush()
+	_, err := s.W.Exec(`INSERT INTO monthly_health
+		(crew_id, month, avg_hr, avg_spo2, avg_sleep_h, avg_hrv, hemoglobin, wbc, platelets,
+		 glucose_fasting, orthostatic_drop_sys, weight_kg, weight_change_pct, exercise_pct,
+		 radiation_month_msv, mental_index)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(crew_id, month) DO UPDATE SET
+		 avg_hr=COALESCE(excluded.avg_hr, monthly_health.avg_hr),
+		 avg_spo2=COALESCE(excluded.avg_spo2, monthly_health.avg_spo2),
+		 avg_sleep_h=COALESCE(excluded.avg_sleep_h, monthly_health.avg_sleep_h),
+		 avg_hrv=COALESCE(excluded.avg_hrv, monthly_health.avg_hrv),
+		 hemoglobin=COALESCE(excluded.hemoglobin, monthly_health.hemoglobin),
+		 wbc=COALESCE(excluded.wbc, monthly_health.wbc),
+		 platelets=COALESCE(excluded.platelets, monthly_health.platelets),
+		 glucose_fasting=COALESCE(excluded.glucose_fasting, monthly_health.glucose_fasting),
+		 orthostatic_drop_sys=COALESCE(excluded.orthostatic_drop_sys, monthly_health.orthostatic_drop_sys),
+		 weight_kg=COALESCE(excluded.weight_kg, monthly_health.weight_kg),
+		 weight_change_pct=COALESCE(excluded.weight_change_pct, monthly_health.weight_change_pct),
+		 exercise_pct=COALESCE(excluded.exercise_pct, monthly_health.exercise_pct),
+		 radiation_month_msv=COALESCE(excluded.radiation_month_msv, monthly_health.radiation_month_msv)`,
+		m.CrewID, m.Month, m.AvgHR, m.AvgSpO2, m.AvgSleepH, m.AvgHRV, m.Hemoglobin, m.WBC, m.Platelets,
+		m.Glucose, m.OrthostaticDrop, m.WeightKg, m.WeightChangePct, m.ExercisePct, m.RadiationMonthMS, nil)
+	return err
+}
+
 // Monthly returns the clinical panel of a month (sql.ErrNoRows if none).
 func (s *Store) Monthly(crewID, month string) (model.Monthly, error) {
 	var m model.Monthly

@@ -190,3 +190,6 @@
 .dx-physical-grid .field { display: block; margin-top: 10px; }
 .dx-physical-grid .input { width: 100%; }
 @media (min-width: 700px) { .dx-physical-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+
+.dx-bp-inputs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-2); }
+.dx-physical-notice .btn { margin-top:10px; }

@@ -381,7 +381,8 @@
       if (!enabled() || !send({ type: 'incident' })) { toast('Station offline. Reconnect to report the incident.'); return false; }
       log('system', 'Incident reported to EVA Station', 1); toast('Incident reported'); return true;
     },
-    sendReadiness: function () { var message = readiness(); return !!(enabled() && state === 'online' && message && send(message)); },\n    sendMonthlyHealth: queueMonthlyHealth,
+    sendReadiness: function () { var message = readiness(); return !!(enabled() && state === 'online' && message && send(message)); },
+    sendMonthlyHealth: queueMonthlyHealth,
     openSheet: openSheet,
   };
 })();

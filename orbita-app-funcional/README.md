@@ -1,4 +1,4 @@
-# ÓRBITA · App móvil
+# EVA · App móvil
 
 La interfaz está diseñada como una aplicación de teléfono en orientación vertical, con ancho de móvil, navegación inferior fija, panel de configuración lateral y diseño adaptado a safe areas.
 
@@ -14,4 +14,4 @@ Abre `index.html` mediante un servidor estático o GitHub Pages. Para instalarla
 - Guardado local en el dispositivo y caché PWA básica.
 
 ## Limitaciones importantes
-Esta entrega es frontend/PWA: no crea cuentas ni sincroniza con Órbita Central, no autentica roles, no se conecta realmente a sensores Bluetooth y no envía notificaciones. Los indicadores son descriptivos y no son diagnósticos médicos. Antes de usar datos clínicos reales, se requiere backend seguro, control de acceso, cifrado, auditoría, consentimiento y revisión de cumplimiento normativo.
+Esta entrega es frontend/PWA: no crea cuentas ni sincroniza con EVA Central, no autentica roles, no se conecta realmente a sensores Bluetooth y no envía notificaciones. Los indicadores son descriptivos y no son diagnósticos médicos. Antes de usar datos clínicos reales, se requiere backend seguro, control de acceso, cifrado, auditoría, consentimiento y revisión de cumplimiento normativo.

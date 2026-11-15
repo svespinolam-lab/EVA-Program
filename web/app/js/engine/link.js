@@ -7,7 +7,7 @@
   var FIELDS = ['hr', 'spo2', 'temp', 'rr', 'hrv', 'rad', 'effort', 'suitP', 'o2', 'co2', 'batt', 'bpSys', 'bpDia'];
   var served = /^https?:$/.test(location.protocol) && location.pathname.indexOf('/app') === 0;
   var socket = null, retry = null, batchTimer = null, delay = 1000, initialized = false;
-  var state = 'off', lastAck = 0, replay = [], inFlight = null, sent = new Set();
+  var state = 'off', lastAck = 0, replay = [], inFlight = null, sent = new Set();\n  var monthlyOutbox = App.storage.get('monthlyOutbox', []);\n  if (!Array.isArray(monthlyOutbox)) monthlyOutbox = [];\n  var monthlyInFlight = null;
   var alerts = {}, seen = {}, abortTimer = null, abortKey = null;
   var esc = App.dom.esc;
   var saved = App.storage.get('outbox', []);
@@ -32,6 +32,23 @@
     App.storage.set('outbox', outbox.map(function (item) {
       return [item.crewId, item.seq, item.t].concat(FIELDS.map(function (k) { return item[k] == null ? null : item[k]; }), item.source || 'virtual');
     }));
+  }
+  function persistMonthly() { App.storage.set('monthlyOutbox', monthlyOutbox); }
+  function flushMonthly() {
+    if (state !== 'online' || monthlyInFlight || !monthlyOutbox.length) return;
+    var item = monthlyOutbox[0];
+    if (send(Object.assign({ type: 'monthly-health' }, item))) monthlyInFlight = item.month;
+  }
+  function queueMonthlyHealth(record) {
+    if (!record || !/^\\d{4}-\\d{2}$/.test(record.month)) throw new Error('Monthly panel requires YYYY-MM');
+    var clean = { month: record.month };
+    ['hemoglobin','wbc','platelets','glucose','orthostaticDrop','weightKg','radiationMonth'].forEach(function(k) {
+      if (Number.isFinite(record[k])) clean[k] = record[k];
+    });
+    if (Object.keys(clean).length === 1) throw new Error('Enter at least one monthly clinical value first');
+    var i = monthlyOutbox.findIndex(function(x){return x.month===clean.month;});
+    if (i >= 0) monthlyOutbox[i] = Object.assign({}, monthlyOutbox[i], clean); else monthlyOutbox.push(clean);
+    persistMonthly(); flushMonthly(); changed(); return true;
   }
   function status() { return { state: state, host: host(), crewId: crewId(), queued: outbox.length, lastAck: lastAck }; }
   function changed() {
@@ -199,13 +216,13 @@
         alerts = {};
         (message.alerts || []).forEach(alert); renderAlerts();
         replay = outbox.filter(function (item) { return item.crewId === crewId(); });
-        changed(); api.sendReadiness(); queueCount(); nextBatch(); break;
+        changed(); api.sendReadiness(); queueCount(); nextBatch(); flushMonthly(); break;
       case 'ack-seq':
         if (Number.isSafeInteger(message.seq) && message.seq >= 0) {
           lastAck = Math.max(lastAck, message.seq); prune(message.seq);
         }
         break;
-      case 'batch-ok':
+      case 'monthly-health-ok':\n        monthlyOutbox = monthlyOutbox.filter(function(x){return x.month !== message.month;}); persistMonthly(); monthlyInFlight = null; flushMonthly(); toast('Monthly clinical panel synced'); break;\n      case 'batch-ok':
         if (!inFlight) break;
         clearTimeout(batchTimer);
         if (message.n !== inFlight.length) { toast('Station could not accept the full batch; queued readings retained.'); if (socket) socket.close(); break; }
@@ -222,7 +239,7 @@
       case 'inject': App.telemetry.inject(crewId(), message.scenario); break;
       case 'clear': App.telemetry.clearScenarios(crewId()); break;
       case 'replaced': toast(message.reason || 'This phone was replaced'); api.setEnabled(false); break;
-      case 'error': toast(message.error || 'Station error'); break;
+      case 'error': monthlyInFlight = null; toast(message.error || 'Station error'); break;
       // pong and readiness-ok need no state change.
     }
   }
@@ -359,7 +376,7 @@
       if (!enabled() || !send({ type: 'incident' })) { toast('Station offline. Reconnect to report the incident.'); return false; }
       log('system', 'Incident reported to EVA Station', 1); toast('Incident reported'); return true;
     },
-    sendReadiness: function () { var message = readiness(); return !!(enabled() && state === 'online' && message && send(message)); },
+    sendReadiness: function () { var message = readiness(); return !!(enabled() && state === 'online' && message && send(message)); },\n    sendMonthlyHealth: queueMonthlyHealth,
     openSheet: openSheet,
   };
 })();

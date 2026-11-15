@@ -130,9 +130,9 @@ func main() {
 	fmt.Println()
 	fmt.Println("  EVA Station " + server.Version + "  ·  biomedical EVA monitoring")
 	fmt.Println("  ─────────────────────────────────────────────────────────")
-	fmt.Printf("  PC program      http://localhost:%d\n", *port)
+	fmt.Printf("  PC program      %s://localhost:%d\n", scheme, *port)
 	for _, u := range server.LANURLs(*port) {
-		fmt.Printf("  Phones (Wi-Fi)  %s/app/\n", u)
+		fmt.Printf("  Phones (Wi-Fi)  %s://%s/app/\n", scheme, strings.TrimPrefix(u, "http://"))
 	}
 	fmt.Printf("  Database        %s\n", filepath.Join(*dataDir, "eva-station.db"))
 	fmt.Printf("  Web files       %s\n", source)

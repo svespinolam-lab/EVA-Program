@@ -216,7 +216,7 @@
     var data = latest();
     var v = rawValue(key, data);
     var level = connected && v !== null ? App.levels.classify(key, v) : null;
-    var live = '<span class="badge badge--live reg-live"><span class="reg-live__dot" aria-hidden="true"></span>Live</span>';
+    var realHardware = !!(App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId,key));\n    var live = '<span class="badge badge--live reg-live"><span class="reg-live__dot" aria-hidden="true"></span>' + (realHardware ? 'Hardware live' : 'Demo · not paired') + '</span>';
     var body;
 
     if (connected) {
@@ -232,7 +232,7 @@
           : '') +
         '<button type="button" class="btn btn--secondary btn--block" id="reg-connect-' + key + '" data-action="connect" data-key="' + key + '"' +
         (busy ? ' disabled aria-busy="true"' : '') + '>' +
-        (busy ? '<span class="spinner" aria-hidden="true"></span>Connecting…' : App.icon('signal') + 'Connect sensor') +
+        (busy ? '<span class="spinner" aria-hidden="true"></span>Connecting…' : App.icon('signal') + 'Start demo feed') +
         '</button>';
     }
     return '<div class="sensor reg-sensor" id="reg-row-' + key + '" data-key="' + key + '"' +
@@ -264,7 +264,7 @@
       title: 'Physical health',
       hint: 'Live from the suit',
       action: anyOff
-        ? '<button type="button" class="btn btn--ghost btn--sm" id="reg-connect-all" data-action="connect-all">' + App.icon('link') + 'Connect all</button>'
+        ? '<button type="button" class="btn btn--ghost btn--sm" id="reg-connect-all" data-action="connect-all">' + App.icon('link') + 'Start demo feed</button>'
         : '',
     }) + '</div>';
   }
@@ -286,7 +286,7 @@
     if (st === 'connecting') foot = '<span class="spinner" aria-hidden="true"></span>Connecting…';
     else if (!connected) foot = wasLost(key) ? 'Signal lost' : 'No signal';
     else if (v === null) foot = 'Waiting for data…';
-    else foot = esc(stateText(key, level, v, true));
+    else foot = App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(crewId,key) ? esc(stateText(key, level, v, true)) : 'Demo data · hardware not paired';
 
     return '<div class="tile reg-tile" id="reg-tile-' + key + '" data-key="' + key + '"' +
       ' data-conn="' + (connected ? '1' : '0') + '" data-level="' + (v !== null ? App.ui.lvlAttr(level) : 'off') + '"' +

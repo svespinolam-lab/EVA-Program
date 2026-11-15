@@ -105,6 +105,27 @@ func ws(w http.ResponseWriter,r *http.Request){c,e:=upgrader.Upgrade(w,r,nil);if
  for{var msg map[string]json.RawMessage;if e:=c.ReadJSON(&msg);e!=nil{return};if raw,ok:=msg["type"];ok{var typ string;json.Unmarshal(raw,&typ);if typ=="ACK"{var id int64;json.Unmarshal(msg["alert_id"],&id);var response string;json.Unmarshal(msg["response"],&response);db.Exec("UPDATE alerts SET response=?,response_seconds=CAST((julianday('now')-julianday(ts))*86400 AS INTEGER) WHERE id=?",response,id);broadcast(map[string]any{"type":"ACK_RECEIVED","alert_id":id,"response":response})};continue};var r Reading;b,_:=json.Marshal(msg);if json.Unmarshal(b,&r)==nil{s,err:=record(r);if err==nil{broadcast(map[string]any{"type":"RANKING_UPDATED","astronautas":ranking(),"latest":s})}}}
 }
 func ranking()[]Status{mu.Lock();defer mu.Unlock();a:=make([]Status,0,len(latest));for _,s:=range latest{a=append(a,s)};sort.Slice(a,func(i,j int)bool{return a[i].Score>a[j].Score});return a}
+
+func captureIncident(alertID int64, mission, astronaut string, event time.Time) {
+ time.Sleep(15*time.Minute)
+ start:=event.Add(-30*time.Minute).Format(time.RFC3339)
+ end:=event.Add(15*time.Minute).Format(time.RFC3339)
+ rows,err:=db.Query("SELECT ts,hr,spo2,temp,resp,hrv,radiation,effort,ipv,level FROM telemetry WHERE mission_id=? AND astronaut_id=? AND ts BETWEEN ? AND ? ORDER BY ts",mission,astronaut,start,end)
+ if err!=nil{return};defer rows.Close()
+ samples:=[]map[string]any{};first:=""
+ for rows.Next(){var ts,effort,level string;var hr,spo2,temp,resp,hrv,rad float64;var ipv int
+  if rows.Scan(&ts,&hr,&spo2,&temp,&resp,&hrv,&rad,&effort,&ipv,&level)==nil{
+   samples=append(samples,map[string]any{"timestamp":ts,"hr":hr,"spo2":spo2,"temp":temp,"resp":resp,"hrv":hrv,"radiation":rad,"effort":effort,"ipv":ipv,"level":level})
+   if first==""&&ipv>=70{first=ts}
+  }
+ }
+ data,_:=json.Marshal(samples);class:="SUDDEN"
+ var vuln int;db.QueryRow("SELECT vulnerability FROM astronauts WHERE id=?",astronaut).Scan(&vuln);if vuln>=30{class="PROGRESSIVE"}
+ for _,s:=range samples{if s["spo2"].(float64)<=0||s["hr"].(float64)<=0||s["temp"].(float64)<25||s["temp"].(float64)>45{class="SENSOR_FAILURE";break}}
+ if first==""{first=event.Format(time.RFC3339)}
+ db.Exec("INSERT INTO incidents(mission_id,astronaut_id,alert_id,event_at,window_start,window_end,classification,first_deviation,readings_json) VALUES(?,?,?,?,?,?,?,?,?)",mission,astronaut,alertID,event.Format(time.RFC3339),start,end,class,first,string(data))
+}
+
 func main(){
  initDB()
  http.HandleFunc("/",func(w http.ResponseWriter,r *http.Request){if r.URL.Path!="/" {http.NotFound(w,r);return};http.ServeFile(w,r,"dashboard/index.html")})

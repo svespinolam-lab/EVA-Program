@@ -58,7 +58,9 @@ type telRow struct {
 }
 
 // Now returns the current time in Unix milliseconds.
-func Now() int64 { return time.Now().UnixMilli() }
+// It is a variable so tests can drive time deterministically (e.g. the 30 s
+// escalation) without sleeping.
+var Now = func() int64 { return time.Now().UnixMilli() }
 
 // Open creates (if needed) and opens the database at path.
 func Open(path string) (*Store, error) {

@@ -553,6 +553,27 @@ func (e *Engine) resolveAlert(oa *openAlert, now int64) {
 	e.device(a.CrewID, map[string]any{"type": "alert-update", "alert": *a})
 }
 
+// AckByCrew records a response sent from a phone. A phone may only answer
+// alerts about its own crew member: another phone must not be able to
+// silence someone else's emergency. Unknown and foreign alerts look the same.
+func (e *Engine) AckByCrew(id int64, response, crewID string) (model.Alert, error) {
+	e.mu.Lock()
+	owner := ""
+	if oa := e.open[id]; oa != nil {
+		owner = oa.a.CrewID
+	}
+	e.mu.Unlock()
+	if owner == "" {
+		if x, err := e.st.Alert(id); err == nil {
+			owner = x.CrewID
+		}
+	}
+	if owner == "" || owner != crewID {
+		return model.Alert{}, errors.New("alert not found")
+	}
+	return e.Ack(id, response, "crew")
+}
+
 // Ack records a response to an alert: by "crew" (from the phone) or
 // "operator" (from the console). response: COPIED | IM_OK | NEED_HELP.
 func (e *Engine) Ack(id int64, response, by string) (model.Alert, error) {
@@ -928,9 +949,13 @@ func (e *Engine) Welcome(crewID string) map[string]any {
 			mine = append(mine, oa.a)
 		}
 	}
-	var crew []model.Crew
+	// Privacy: phones only get the public roster (who is who). Medical
+	// records (allergies, conditions, medication, blood type, body data,
+	// radiation history) stay in the station; each phone keeps its own.
+	crew := make([]map[string]any, 0, len(e.order))
 	for _, id := range e.order {
-		crew = append(crew, e.cs[id].m)
+		m := e.cs[id].m
+		crew = append(crew, map[string]any{"id": m.ID, "name": m.Name, "initials": m.Initials, "role": m.Role, "specialty": m.Specialty})
 	}
 	return map[string]any{"type": "welcome", "crewId": crewID, "serverTime": store.Now(), "mission": e.mission, "crew": crew, "alerts": mine}
 }
@@ -1195,6 +1220,11 @@ type DeviceView struct {
 	Name    string `json:"name,omitempty"`
 	Since   int64  `json:"since,omitempty"`
 	Source  string `json:"source"` // device | virtual | none
+	// Data is the provenance of the latest live reading, as tagged by the
+	// sender: "device" (hardware sensor), "virtual" (simulated — the phone's
+	// demo streams and the station's virtual suits) or "replay". The console
+	// must never present simulated readings as real ones.
+	Data    string `json:"data,omitempty"`
 	LastT   int64  `json:"lastT"`
 	Queued  int    `json:"queued"`
 	Virtual bool   `json:"virtual"`
@@ -1222,7 +1252,7 @@ func (e *Engine) crewViews(full bool) []CrewView {
 		cs := e.cs[id]
 		v := CrewView{Crew: cs.m, EVA: cs.m.IsEVA(), Baseline: cs.b, Eval: cs.eval, Vitals: cs.latest, Factors: cs.factors, Vuln: cs.vuln,
 			Dose: math.Round(cs.dose*1000) / 1000, Readiness: cs.today, LastEVA: cs.recent, Help: cs.help > 0}
-		v.Device = DeviceView{Online: cs.devOnline, Name: cs.devName, Since: cs.devSince, LastT: cs.lastT, Queued: cs.queued, Source: "none"}
+		v.Device = DeviceView{Online: cs.devOnline, Name: cs.devName, Since: cs.devSince, LastT: cs.lastT, Queued: cs.queued, Source: "none", Data: cs.source}
 		if e.vs != nil {
 			v.Device.Virtual = e.vs.Enabled(id)
 		}
@@ -1256,8 +1286,11 @@ func (e *Engine) deviceCrew() []map[string]any {
 	out := make([]map[string]any, 0, len(e.order))
 	for _, id := range e.order {
 		cs := e.cs[id]
-		out = append(out, map[string]any{"id": id, "role": cs.m.Role, "name": cs.m.Name, "ipv": cs.eval.IPV, "status": cs.eval.Status,
-			"level": cs.eval.Level, "diagnosis": cs.eval.Diagnosis, "vitals": cs.latest, "lastT": cs.lastT, "online": cs.devOnline})
+		// Buddy awareness only: live suit readings and the alert level. The IPV
+		// (built from private readiness/sleep factors) and the diagnosis text
+		// stay with the operator.
+		out = append(out, map[string]any{"id": id, "role": cs.m.Role, "name": cs.m.Name,
+			"level": cs.eval.Level, "vitals": cs.latest, "lastT": cs.lastT, "online": cs.devOnline})
 	}
 	return out
 }

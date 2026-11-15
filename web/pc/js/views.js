@@ -43,7 +43,10 @@
   }
   function deviceChip(c) {
     var d = c.device || {};
-    if (d.source === 'device') return '<span class="chip" data-tone="accent">' + icon('link') + 'Phone linked</span>';
+    // Provenance: a linked phone may stream hardware readings or its demo
+    // simulation; simulated data is never shown as real.
+    if (d.source === 'device' && d.data === 'device') return '<span class="chip" data-tone="accent">' + icon('link') + 'Phone linked · sensors</span>';
+    if (d.source === 'device') return '<span class="chip" data-tone="accent" title="The phone is streaming simulated (demo) readings, not hardware sensors">' + icon('link') + 'Phone linked · simulated data</span>';
     if (d.source === 'virtual') return '<span class="chip">' + icon('suit') + 'Virtual suit</span>';
     return '<span class="chip" data-level="off">' + icon('unlink') + 'No link</span>';
   }

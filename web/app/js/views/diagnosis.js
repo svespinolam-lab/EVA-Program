@@ -444,6 +444,11 @@
     {key:'radAccum',label:'Accumulated radiation dose',unit:'mSv',method:'Personal dosimeter · cumulative mission dose',source:'manual',why:'Tracks mission and career radiation exposure.'}
   ];
   var SENSOR_KEYS = {hr:'hr',hrv:'hrv',spo2:'spo2',temp:'temp',rad:'rad'};
+  var MONTHLY_LABS = [
+    {key:'hemoglobin',label:'Hemoglobin',unit:'g/dL',method:'Monthly blood test',source:'manual',why:'Periodic screen for anemia; interpret using the flight surgeon’s reference range.'},
+    {key:'wbc',label:'White blood cells',unit:'cells/µL',method:'Monthly complete blood count',source:'manual',why:'Trend can help identify infection or immune changes.'},
+    {key:'platelets',label:'Platelets',unit:'cells/µL',method:'Monthly complete blood count',source:'manual',why:'Tracks clotting-related blood count changes.'}
+  ];
   var PHYSICAL_GUIDANCE = {
     hr:'Green: 50–90 bpm or within ±10 bpm of baseline. Observe: 91–110 or +10–20 over baseline. Red: >110 at rest, <40 with dizziness, or +20 over baseline for 3 days.',
     hrv:'Use personal baseline only. Observe: 15–30% below baseline. Review: >30% below baseline or falling for 3 days.',
@@ -472,7 +477,7 @@
     var sensorKey = SENSOR_KEYS[p.key];
     var status = sensorKey && App.telemetry && App.telemetry.status ? App.telemetry.status(member.id, sensorKey) : '';
     var simulated = sensorKey && !(App.telemetry && App.telemetry.isHardwareConnected && App.telemetry.isHardwareConnected(member.id,sensorKey));
-    var sourceLabel = sensorKey ? (status === 'connected' ? (simulated ? 'Demo stream · hardware not paired' : 'Sensor connected') : 'Sensor not connected') : 'Manual entry / external device';
+    var sourceLabel = sensorKey ? (status === 'connected' ? (simulated ? 'Not paired · demo data only' : 'Sensor connected') : 'Sensor not connected') : 'Manual entry / external device';
     if(p.key==='bp' && saved.bpSys!=null && saved.bpDia!=null) v=Number(saved.bpSys)+'/'+Number(saved.bpDia);
     var value = v == null ? '<span class="dx-missing">No measurement yet</span>' : '<b>' + esc(String(v)) + '</b> <small>' + esc(p.unit) + '</small>';
     var input = p.key === 'bp' ? '<div class="dx-bp-inputs"><label class="field"><span class="field__label">Systolic</span><input class="input" type="number" inputmode="decimal" data-physical-input="bpSys" value="' + esc(saved.bpSys == null ? '' : saved.bpSys) + '" placeholder="mmHg"></label><label class="field"><span class="field__label">Diastolic</span><input class="input" type="number" inputmode="decimal" data-physical-input="bpDia" value="' + esc(saved.bpDia == null ? '' : saved.bpDia) + '" placeholder="mmHg"></label></div>' : (p.source === 'manual' ? '<label class="field"><span class="field__label">Enter value</span><input class="input" type="number" inputmode="decimal" step="any" data-physical-input="' + p.key + '" value="' + esc(saved[p.key] == null ? '' : saved[p.key]) + '" placeholder="Not recorded"></label>' : '');
@@ -495,7 +500,7 @@
       if (chip) {
         var key=SENSOR_KEYS[p.key], status=key&&App.telemetry&&App.telemetry.status?App.telemetry.status(member.id,key):'';
         var demo=key&&!(App.telemetry&&App.telemetry.isHardwareConnected&&App.telemetry.isHardwareConnected(member.id,key));
-        chip.textContent=key?(status==='connected'?(demo?'Demo stream · hardware not paired':'Sensor connected'):'Sensor not connected'):'Manual entry / external device';
+        chip.textContent=key?(status==='connected'?(demo?'Not paired · demo data only':'Sensor connected'):'Sensor not connected'):'Manual entry / external device';
         chip.setAttribute('data-tone',key&&status!=='connected'?'warning':'accent');
       }
     });

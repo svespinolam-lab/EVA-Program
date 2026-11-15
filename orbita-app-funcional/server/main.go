@@ -64,6 +64,16 @@ func evaluate(r Reading) Status {
  var bHR,bO2,bT,bHRV float64=70,98,36.8,50
  var vuln int
  db.QueryRow("SELECT base_hr,base_spo2,base_temp,base_hrv,vulnerability FROM astronauts WHERE id=?",r.AstronautID).Scan(&bHR,&bO2,&bT,&bHRV,&vuln)
+ // Personal baseline: first 14 days establish adaptation; afterwards use a rolling 7-day window.
+ var samples int
+ db.QueryRow("SELECT COUNT(*) FROM telemetry WHERE astronaut_id=?",r.AstronautID).Scan(&samples)
+ window:="-14 days"
+ if samples>=14 { window="-7 days" }
+ var n int
+ row:=db.QueryRow("SELECT COUNT(*),AVG(hr),AVG(spo2),AVG(temp),AVG(NULLIF(hrv,0)) FROM telemetry WHERE astronaut_id=? AND ts>=datetime('now',?)",r.AstronautID,window)
+ var avgHR,avgO2,avgT,avgHRV sql.NullFloat64
+ row.Scan(&n,&avgHR,&avgO2,&avgT,&avgHRV)
+ if n>=5 { if avgHR.Valid {bHR=avgHR.Float64};if avgO2.Valid {bO2=avgO2.Float64};if avgT.Valid {bT=avgT.Float64};if avgHRV.Valid {bHRV=avgHRV.Float64} }
  score:=vuln; reasons:=[]string{}; protocol:="Continue standard monitoring."
  if r.SpO2<90 {score=max(score,98);reasons=append(reasons,"Critical oxygen saturation");protocol="Stop work. Check suit oxygen. Return to airlock."} else if r.SpO2<=92 {score=max(score,78);reasons=append(reasons,"Low oxygen saturation");protocol="Reduce workload and verify oxygen supply."}
  if r.Temp>=39 {score=max(score,95);reasons=append(reasons,"Critical temperature");protocol="Abort EVA and activate cooling protocol."} else if r.Temp>=38 {score=max(score,74);reasons=append(reasons,"Elevated temperature")}
@@ -97,6 +107,7 @@ func ws(w http.ResponseWriter,r *http.Request){c,e:=upgrader.Upgrade(w,r,nil);if
 func ranking()[]Status{mu.Lock();defer mu.Unlock();a:=make([]Status,0,len(latest));for _,s:=range latest{a=append(a,s)};sort.Slice(a,func(i,j int)bool{return a[i].Score>a[j].Score});return a}
 func main(){
  initDB()
+ http.HandleFunc("/",func(w http.ResponseWriter,r *http.Request){if r.URL.Path!="/" {http.NotFound(w,r);return};http.ServeFile(w,r,"dashboard/index.html")})
  http.HandleFunc("/ws/monitor",ws)
  http.HandleFunc("/api/health",func(w http.ResponseWriter,r *http.Request){json.NewEncoder(w).Encode(map[string]any{"status":"ok","offline_first":true,"service":"EVA mission station"})})
  http.HandleFunc("/api/premission",func(w http.ResponseWriter,r *http.Request){if r.Method!="POST"{http.Error(w,"POST required",405);return};var p SafeCheck;if json.NewDecoder(http.MaxBytesReader(w,r.Body,8192)).Decode(&p)!=nil||p.AstronautID==""||(p.TrafficLight!="GREEN"&&p.TrafficLight!="AMBER"&&p.TrafficLight!="RED"){http.Error(w,"Invalid safe pre-mission payload",400);return};p.Timestamp=time.Now().UTC().Format(time.RFC3339);_,e:=db.Exec("INSERT INTO premission_checks(astronaut_id,mission_id,ts,traffic_light,vulnerability,summary) VALUES(?,?,?,?,?,?)",p.AstronautID,p.MissionID,p.Timestamp,p.TrafficLight,p.Vulnerability,p.Summary);if e!=nil{http.Error(w,e.Error(),500);return};json.NewEncoder(w).Encode(map[string]any{"accepted":true,"private_diary_received":false})})

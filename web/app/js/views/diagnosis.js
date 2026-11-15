@@ -489,7 +489,7 @@
   }
   function updatePhysicalValues(member, data) {
     if (!st || !q('#dx-physical-complete')) return;
-    PHYSICAL.forEach(function(p) {
+    PHYSICAL.concat(MONTHLY_LABS).forEach(function(p) {
       if (!SENSOR_KEYS[p.key] && p.key !== 'bp') return;
       var card=q('[data-physical-card="'+p.key+'"]');
       if (!card) return;

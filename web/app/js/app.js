@@ -293,6 +293,8 @@
       if (m && m.init) safe(function () { m.init(); });
     });
     if (App.telemetry && App.telemetry.start) safe(function () { App.telemetry.start(); });
+    // Link with EVA Station (WebSocket): telemetry up, alerts / instructions / abort down
+    if (App.link && App.link.init) safe(function () { App.link.init(); });
 
     App.shell.refresh();
     tickClock();

@@ -26,6 +26,7 @@
 <link rel="stylesheet" href="css/views/diagnosis.css">
 <link rel="stylesheet" href="css/views/profile.css">
 <link rel="stylesheet" href="css/views/settings.css">
+<link rel="stylesheet" href="css/views/link.css">
 </head>
 <body>
 
@@ -65,7 +66,9 @@
     </div>
     <div class="gutter">
       <div class="crew" id="crew" role="group" aria-label="Selected crew member"></div>
+      <button type="button" class="station-chip" id="station-chip" data-state="off" aria-label="Station link settings">○ Station off</button>
       <div id="alert-slot" aria-live="assertive"></div>
+      <div class="station-banners" id="station-banners" aria-live="assertive"></div>
     </div>
   </header>
 
@@ -97,6 +100,10 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<!-- EVA STATION LINK: alert acknowledgement bar and EVA-abort overlay (js/engine/link.js) -->
+<div class="station-acks" id="station-acks" aria-live="assertive"></div>
+<div class="station-abort" id="station-abort" role="alertdialog" aria-modal="true" aria-labelledby="station-abort-title" hidden></div>
+
 <!-- SCRIPTS (load order matters) -->
 <script src="js/config.js" defer></script>
 <script src="js/core.js" defer></script>
@@ -107,6 +114,7 @@
 <script src="js/engine/risk.js" defer></script>
 <script src="js/engine/voice.js" defer></script>
 <script src="js/engine/blackbox.js" defer></script>
+<script src="js/engine/link.js" defer></script>
 <!-- Views -->
 <script src="js/views/log.js" defer></script>
 <script src="js/views/diagnosis.js" defer></script>

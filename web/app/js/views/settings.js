@@ -167,6 +167,7 @@
         listItem('cfg-export', 'open-export', 'download', 'Export data', plural(eventCount(), 'event', 'events') + ' in the blackbox') +
         listItem('cfg-reports', 'open-reports', 'fileText', 'Reports', reportsSub()) +
         listItem('cfg-roles', 'open-roles', 'users', 'Assign roles', rolesSummary()) +
+        listItem('cfg-link', 'open-link', 'link', 'Station link', App.link ? (function (s) { return s.state + ' · ' + s.queued + ' queued'; })(App.link.status()) : 'Not available') +
       '</nav>' +
       '<section class="cfg-section" aria-label="Voice alerts"><h3 class="eyebrow">Voice alerts</h3>' + voiceControls('cfg') + '</section>' +
       '<section class="cfg-section" aria-label="Demo"><h3 class="eyebrow">Demo</h3>' +
@@ -555,7 +556,8 @@
   }
 
   /* Close the drawer before opening a sheet */
-  var SHEETS = { export: sheetExport, reports: sheetReports, roles: sheetRoles, voice: sheetVoice, simulation: sheetSim };
+  var SHEETS = { export: sheetExport, reports: sheetReports, roles: sheetRoles, voice: sheetVoice, simulation: sheetSim,
+    link: function () { if (App.link && App.link.openSheet) App.link.openSheet(); } };
 
   function open(name) {
     if (App.shell && App.shell.closeDrawer) App.shell.closeDrawer();

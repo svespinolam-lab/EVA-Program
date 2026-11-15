@@ -1,7 +1,7 @@
 {
   "name":"EVA · Crew Health Monitoring",
   "short_name":"EVA",
-  "lang":"es-MX",
+  "lang":"en",
   "start_url":"./index.html",
   "scope":"./",
   "display":"standalone",

@@ -1,0 +1,31 @@
+name: EVA integration checks
+on:
+  push:
+    branches: [app-movil]
+    paths:
+      - 'orbita-app-funcional/**'
+      - '.github/workflows/eva-ci.yml'
+  pull_request:
+    paths:
+      - 'orbita-app-funcional/**'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: orbita-app-funcional
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: orbita-app-funcional/go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check mobile JavaScript syntax
+        run: node --check mobile/eva-mission.js
+      - name: Build cabin server
+        run: go build ./...
+      - name: Run Go tests
+        run: go test ./...

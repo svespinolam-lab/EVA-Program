@@ -2,6 +2,8 @@ package main
 
 import (
  "database/sql"
+ "crypto/subtle"
+ "strings"
  "encoding/json"
  "log"
  "net/http"
@@ -138,6 +140,12 @@ func main(){
  http.HandleFunc("/api/simulator",func(w http.ResponseWriter,r *http.Request){if r.Method!="POST"{http.Error(w,"POST required",405);return};var x Reading;if json.NewDecoder(r.Body).Decode(&x)!=nil{http.Error(w,"Invalid JSON",400);return};s,e:=record(x);if e!=nil{http.Error(w,e.Error(),400);return};broadcast(map[string]any{"type":"RANKING_UPDATED","astronautas":ranking(),"latest":s});json.NewEncoder(w).Encode(s)})
  http.HandleFunc("/api/incidents/",func(w http.ResponseWriter,r *http.Request){mission:=r.URL.Path[len("/api/incidents/"):];rows,e:=db.Query("SELECT id,astronaut_id,event_at,window_start,window_end,classification,first_deviation FROM incidents WHERE mission_id=? ORDER BY event_at DESC",mission);if e!=nil{http.Error(w,e.Error(),500);return};defer rows.Close();out:=[]map[string]any{};for rows.Next(){var id int;var astro,at,start,end,kind,first string;rows.Scan(&id,&astro,&at,&start,&end,&kind,&first);out=append(out,map[string]any{"id":id,"astronaut_id":astro,"event_at":at,"window_start":start,"window_end":end,"classification":kind,"first_deviation":first})};json.NewEncoder(w).Encode(out)})
  http.HandleFunc("/api/report/mission/",func(w http.ResponseWriter,r *http.Request){id:=r.URL.Path[len("/api/report/mission/"):];rows,e:=db.Query("SELECT astronaut_id,COUNT(*),ROUND(AVG(hr),1),MAX(hr),MIN(spo2),MAX(temp),MAX(ipv) FROM telemetry WHERE mission_id=? GROUP BY astronaut_id ORDER BY MAX(ipv) DESC",id);if e!=nil{http.Error(w,e.Error(),500);return};defer rows.Close();out:=[]map[string]any{};for rows.Next(){var a string;var n int;var avg,mx,lo,tm float64;var score int;rows.Scan(&a,&n,&avg,&mx,&lo,&tm,&score);out=append(out,map[string]any{"astronaut_id":a,"samples":n,"mean_hr":avg,"max_hr":mx,"min_spo2":lo,"max_temp":tm,"max_ipv":score})};json.NewEncoder(w).Encode(out)})
- port:=os.Getenv("EVA_PORT");if port==""{port="8000"};log.Printf("EVA local mission server listening on :%s",port);log.Fatal(http.ListenAndServe("0.0.0.0:"+port,nil))
+ port:=os.Getenv("EVA_PORT");if port==""{port="8000"}
+ addr:="0.0.0.0:"+port
+ cert,key:=os.Getenv("EVA_TLS_CERT"),os.Getenv("EVA_TLS_KEY")
+ log.Printf("EVA local mission server listening on %s",addr)
+ if cert!=""&&key!=""{log.Fatal(http.ListenAndServeTLS(addr,cert,key,nil))}
+ log.Print("WARNING: HTTP mode disables Web Bluetooth and installable PWA on most phones. Configure trusted TLS certificates for field use.")
+ log.Fatal(http.ListenAndServe(addr,nil))
 }
 var _ = strconv.Itoa

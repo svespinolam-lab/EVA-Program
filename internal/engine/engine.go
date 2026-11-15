@@ -236,7 +236,10 @@ func (e *Engine) loadReadiness(cs *crewState) {
 
 // Ingest processes one live reading from a phone ("device") or a virtual suit.
 func sampleSource(s model.Sample, fallback string) string {
-	switch s.Source { case "device", "virtual", "replay": return s.Source }
+	switch s.Source {
+	case "device", "virtual", "replay":
+		return s.Source
+	}
 	return fallback
 }
 
